@@ -1,0 +1,1 @@
+// Armature domain module placeholder.

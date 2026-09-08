@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Armature Monitoring — Gedung 2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/dashboard.css">
+  <link rel="stylesheet" href="../css/modal.css">
+</head>
+<body data-required-role="viewer">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><img src="../assets/logo.png" alt="Armature Monitoring System"></div>
+      <nav aria-label="Navigasi Gedung 2">
+        <a class="active" href="#dashboard"><span>⌂</span>Dashboard</a>
+        <a href="#armature"><span>☷</span>Armature Availability</a>
+        
+      <a id="logout" href="#logout"><span>↪</span>Logout</a></nav>
+      <div class="company-note">♧ <span>PT Denso Manufacturing Indonesia<br><small>Blower AC Motor</small></span></div>
+    </aside>
+
+    <main id="dashboard" class="dashboard">
+      <header class="topbar">
+        <div><p class="eyebrow">Gedung 2 / Viewer</p><h1>Armature Monitoring</h1><p class="subtitle">Lihat stok K62, catat penggunaan, dan ajukan request material.</p></div>
+        <div class="header-actions"><button class="icon-button" aria-label="Notifikasi">♧</button><div class="user"><span class="avatar">●</span><b>Viewer</b><small>Gedung 2</small><span class="chevron">⌄</span></div></div>
+      </header>
+
+      <div class="type-tabs"><button class="chip active" data-type="all">K62</button></div>
+      <section class="summary-panel" aria-label="Ringkasan material"><article><span class="summary-icon">▣</span><div><small>Total Material</small><strong id="summary-material-count">- <em>(K62)</em></strong></div></article><article><span class="summary-icon">▣</span><div><small>Total Quantity (Box)</small><strong id="summary-total-quantity">- <em>(Total semua material)</em></strong></div></article><p>ⓘ <span>Gunakan material sesuai stok tersedia.<br>Request diproses oleh BOP.</span></p></section>
+
+      <section id="armature" class="materials"><div id="grid" class="card-grid"></div><p id="loading" class="empty-state" role="status">Memuat data material...</p><p id="empty" class="empty-state">Material tidak ditemukan.</p><p id="dashboard-error" class="empty-state" role="alert"></p></section>
+    </main>
+  </div>
+
+  <div id="backdrop" class="modal-backdrop" aria-hidden="true">
+    <section class="stock-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button id="close-modal" class="modal-close" aria-label="Tutup">×</button>
+      <header class="stock-heading"><div class="modal-part"><i></i><b id="m-part">A:0130</b><span id="m-type">K62</span></div><h2 id="modal-title">Armature 0130</h2><p><mark id="m-local">CKD</mark> <span id="m-konmi">(Konmi CKD / Ekspor)</span></p><img src="../assets/armature.png" alt="Armature"></header>
+      <section class="stock-current"><div><small>Current Stock</small><strong id="m-qty">8 <span>BOX</span></strong><b id="m-status" class="status ready">READY</b></div><div><small>Last Update</small><b id="m-update">07 Sep 2026 · 09:42</b><em>by Viewer (Gedung 2)</em></div></section>
+      <button id="request-preview" class="request-preview" type="button"><header><h3>Request Material dari Gedung 2</h3><span aria-hidden="true">›</span></header><div><small>Jumlah diminta</small><strong id="request-quantity">12 <span>BOX</span></strong></div><div><small>Status request</small><b id="request-status" class="waiting">PENDING</b></div></button>
+
+      <form id="quantity-form" class="quantity-form" hidden>
+        <label id="quantity-label" for="quantity-input">Quantity (BOX)</label>
+        <input id="quantity-input" name="quantity" type="number" step="1" min="0" required inputmode="numeric">
+        <p id="quantity-help"></p>
+        <div class="stock-actions"><button id="quantity-cancel" type="button">Batal</button><button id="quantity-submit" class="primary" type="submit">Simpan</button></div>
+      </form>
+      <p id="action-feedback" class="action-feedback" role="status"></p>
+      <footer id="modal-primary-actions" class="stock-actions"><button id="update-stock">▣ &nbsp; DIGUNAKAN / USE</button><button id="handle-request" class="primary">▣ &nbsp; REQUEST</button></footer>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/config.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/viewer.js"></script>
+</body>
+</html>
