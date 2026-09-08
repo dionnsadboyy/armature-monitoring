@@ -13,7 +13,12 @@ const escapeHtml = (value) => String(value).replace(/[&<>"']/g, character => ({'
 
 const setText = (selector, value) => {
   const element = document.querySelector(selector);
-  if (element) element.textContent = value;
+  if (!element) return;
+  element.textContent = value;
+  if (selector === "#action-feedback" || selector === "#request-feedback") {
+    element.classList.toggle("success", /berhasil|tersimpan|diperbarui/i.test(String(value)));
+    element.classList.toggle("error", /gagal|melebihi|masukkan|tidak dapat|tidak ada|periksa|masih ada/i.test(String(value)));
+  }
 };
 
 function displayValue(value) {
@@ -78,7 +83,7 @@ function renderCards() {
     const supplyLabel = getSupplyLabel(material.konmi);
     const supplyClass = supplyLabel === "CKD" ? "ckd" : "local";
 
-    return `<article class="material-card tone-${getTone(material.color)}" data-id="${escapeHtml(material.id)}">
+    return `<article class="material-card tone-${getTone(material.color)}" data-id="${escapeHtml(material.id)}" tabindex="0" role="button" aria-label="Buka detail armature ${part}">
       <div class="card-head"><div class="material-code"><i></i><b>${part}</b><span class="type-pill">${escapeHtml(displayValue(material.armature_type))}</span></div><img class="mini-armature" src="../assets/armature.png" alt="Armature ${part}"></div>
       <div class="card-body"><h2>Armature ${part.replace(":", "")}</h2><p class="card-meta"><span class="tag ${supplyClass}">${supplyLabel}</span>(Konmi ${escapeHtml(displayValue(material.konmi))})${isViewer ? ` · Warna ${escapeHtml(displayValue(material.color))}` : ""}</p>${requestLabel(material)}
       <div class="quantity-row"><small>Quantity</small><strong>${quantity} <span>BOX</span></strong><b class="status ${statusClass(status)}">${escapeHtml(status)}</b></div>
@@ -192,6 +197,13 @@ grid.addEventListener("click", (event) => {
   if (!card) return;
   openStock(materials.find((material) => String(material.id) === card.dataset.id));
 });
+grid.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const card = event.target.closest(".material-card");
+  if (!card) return;
+  event.preventDefault();
+  openStock(materials.find((material) => String(material.id) === card.dataset.id));
+});
 
 document.querySelector("#close-modal").addEventListener("click", closeStock);
 document.querySelector("#update-stock").addEventListener("click", () => openQuantity(isViewer ? "use" : "stock"));
@@ -234,6 +246,17 @@ function setBusy(value) {
   busy = value;
   document.querySelectorAll("#backdrop button, #backdrop input, #request-backdrop button, #logout")
     .forEach(element => { element.disabled = value; });
+  const quantitySubmit = $("#quantity-submit");
+  if (quantitySubmit) {
+    if (value) {
+      quantitySubmit.dataset.defaultLabel ||= quantitySubmit.textContent;
+      quantitySubmit.innerHTML = '<span class="button-spinner" aria-hidden="true"></span><span>Memproses...</span>';
+      quantitySubmit.setAttribute("aria-busy", "true");
+    } else {
+      quantitySubmit.textContent = quantitySubmit.dataset.defaultLabel || "Simpan";
+      quantitySubmit.removeAttribute("aria-busy");
+    }
+  }
   if (!value) {
     const item = currentMaterial();
     if (item) populate(item);

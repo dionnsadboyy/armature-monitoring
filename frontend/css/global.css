@@ -1,1 +1,19 @@
-/* Shared styles will be extracted here in a later integration stage. */
+/* Shared interaction polish. Keep the established palette and compact density. */
+:root {
+  --motion-fast: 180ms ease;
+  --focus-ring: 0 0 0 3px rgba(37, 120, 216, .18);
+}
+
+button, a, input, textarea { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible {
+  outline: 0;
+  box-shadow: var(--focus-ring);
+}
+
+button, .material-card, .request-preview, .status-options button, .modal-close {
+  transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast), opacity var(--motion-fast), transform var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

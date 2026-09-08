@@ -6,15 +6,74 @@
 .quantity-form[hidden]{display:none}
 .quantity-form label{display:block;font-size:14px;font-weight:700;color:#153b64}
 .quantity-form input{width:100%;margin-top:8px;padding:10px;border:1px solid #a9cbe9;border-radius:6px;font:inherit}
+.quantity-form input:focus{outline:0;border-color:#2578d8;box-shadow:var(--focus-ring)}
 .quantity-form p{font-size:12px;line-height:1.5;color:#406b94}
 .quantity-form .stock-actions{padding:8px 0 0}
 .action-feedback{margin:12px 18px;font-size:13px;line-height:1.5;color:#315e89}
 .action-feedback:empty{display:none}
 .stock-modal{max-height:calc(100dvh - 40px);overflow:auto}
 button:disabled{cursor:not-allowed;opacity:.55}
+.stock-actions button:hover:not(:disabled),.request-right footer button:hover:not(:disabled){border-color:#2578d8;background:#f5faff;color:#1b67ad}
+.stock-actions .primary:hover:not(:disabled),.request-right footer .primary:hover:not(:disabled){background:#174f83!important;color:#fff!important;box-shadow:0 6px 14px rgba(18,82,140,.18)}
+.modal-close:hover{background:#edf5fc;color:#12528c;transform:scale(1.04)}
+.button-spinner{display:inline-block;width:12px;height:12px;margin-right:7px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;animation:spin .7s linear infinite}
+.action-feedback.success,.request-feedback.success{color:#168363;background:#effbf5;border-radius:7px;padding:8px 10px}
+.action-feedback.error,.request-feedback.error{color:#b9455a;background:#fff4f5;border-radius:7px;padding:8px 10px}
+.action-feedback:empty,.request-feedback:empty{padding:0;background:transparent}
 /* Ensure modal action modes never render both button groups at once. */
 #quantity-form[hidden],
 #modal-primary-actions[hidden] {
   display: none !important;
 }
 
+/* =========================================================
+   3D CARD -> DETAIL MODAL MICRO-INTERACTION
+   Visual-only polish. No business logic / Supabase changes.
+   ========================================================= */
+.modal-backdrop,
+.request-backdrop {
+  perspective: 1100px;
+  perspective-origin: 50% 45%;
+}
+
+.stock-modal,
+.request-modal {
+  opacity: .38;
+  transform: translate3d(0, 20px, -90px) scale(.78) rotateX(7deg) rotateY(-9deg);
+  transform-origin: 50% 42%;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+  transition:
+    transform .32s cubic-bezier(.2,.82,.2,1),
+    opacity .22s ease;
+}
+
+.modal-backdrop.show .stock-modal,
+.request-backdrop.show .request-modal {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1) rotateX(0deg) rotateY(0deg);
+}
+
+/* Tactile feedback on the source card before the modal expands. */
+.material-card:active {
+  transform: translateY(-1px) scale(.985);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .request-backdrop,
+  .stock-modal,
+  .request-modal,
+  .material-card {
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+  }
+
+  .stock-modal,
+  .request-modal,
+  .modal-backdrop.show .stock-modal,
+  .request-backdrop.show .request-modal {
+    transform: none !important;
+  }
+}
