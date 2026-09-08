@@ -216,8 +216,18 @@ function currentMaterial() {
 function setQuantityFormVisible(visible) {
   const form = $("#quantity-form");
   const primaryActions = $("#modal-primary-actions");
-  if (form) form.hidden = !visible;
-  if (primaryActions) primaryActions.hidden = visible;
+
+  if (form) {
+    form.hidden = !visible;
+    form.style.display = visible ? "block" : "none";
+  }
+
+  if (primaryActions) {
+    primaryActions.hidden = visible;
+    primaryActions.style.display = visible ? "none" : "flex";
+  }
+
+  if (!visible) actionMode = null;
 }
 
 function setBusy(value) {

@@ -12,3 +12,9 @@
 .action-feedback:empty{display:none}
 .stock-modal{max-height:calc(100dvh - 40px);overflow:auto}
 button:disabled{cursor:not-allowed;opacity:.55}
+/* Ensure modal action modes never render both button groups at once. */
+#quantity-form[hidden],
+#modal-primary-actions[hidden] {
+  display: none !important;
+}
+
