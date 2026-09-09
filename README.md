@@ -22,6 +22,7 @@ frontend/
   js/
 supabase/
   armature_monitoring_supabase_mvp_k62_v2_safe.sql
+  dev_request_sequence.sql       # DEV-only persistent request ordering change
   post_install_checks.sql
 ```
 
@@ -29,11 +30,32 @@ supabase/
 
 - Viewer **USE** -> RPC `use_armature()` -> stock berkurang atomik + usage log.
 - Viewer **REQUEST** -> RPC `create_armature_request()` -> status `PENDING`.
-- Maksimal satu request aktif (`PENDING`/`ONGOING`) per armature.
+- Maksimal satu request aktif (`PENDING`/`APPROVED`) per armature.
 - BOP **Update Stock** -> RPC `update_armature_stock()` dan nilainya adalah actual stock.
-- BOP request: `PENDING -> ONGOING -> DONE` melalui `update_request_status()`.
-- Saat `DONE`, database otomatis menambahkan requested quantity ke stock.
+- Request status mengikuti flow `PENDING -> APPROVED`; approval tidak mengubah stock.
 - Status stock hanya `EMPTY` (0 BOX) dan `READY` (>0 BOX). Tidak ada LOW threshold.
+
+## Konfigurasi environment
+
+Frontend tidak lagi memiliki mode test berbasis query string, mock database, atau localStorage. Supabase adalah source of truth untuk semua environment.
+
+### Development / dummy
+
+1. Salin `frontend/js/config.example.js` menjadi `frontend/js/config.js`.
+2. Isi `SUPABASE_URL` dan `SUPABASE_PUBLISHABLE_KEY` dengan project Supabase DEV/DUMMY.
+3. Serve folder `frontend/` memakai static web server.
+
+Gunakan hanya project DEV/DUMMY untuk pengujian manual. Jangan memakai URL/key production untuk testing.
+
+### Production Cloudflare Pages
+
+- Build command: `node scripts/generate-config.js`
+- Build output directory: `frontend`
+- Set environment variables `SUPABASE_URL` dan `SUPABASE_PUBLISHABLE_KEY` pada Cloudflare Pages.
+
+Build script membuat `frontend/js/config.js` saat deploy. File tersebut di-ignore Git dan tidak boleh berisi `service_role`, secret key, atau database password.
+
+`supabase/dev_request_sequence.sql` adalah perubahan schema/RPC **DEV/DUMMY only** untuk persistent request ordering. Jangan menjalankannya pada production.
 
 ## Security
 
@@ -45,21 +67,16 @@ Serve folder `frontend/` dengan static web server (misalnya VS Code Live Server)
 
 ## Deploy Cloudflare Pages via GitHub
 
-Untuk repository dengan struktur ini:
-
-- Framework preset: **None**
-- Build command: **kosong**
-- Build output directory: **frontend**
-
 Setelah deploy, buka root domain Pages dan pastikan diarahkan ke Login. Kemudian lakukan smoke test BOP dan Viewer.
 
 ## Smoke test utama
 
-1. Login BOP dan set A:0121 menjadi 10 BOX.
+1. Login BOP dan set A:0121 menjadi 10 BOX pada environment yang sesuai.
 2. Login Viewer, pastikan terlihat 10 BOX READY.
 3. Viewer USE 4 BOX -> stock menjadi 6 BOX.
 4. Viewer REQUEST 5 BOX -> `PENDING`.
-5. BOP ubah `PENDING -> ONGOING -> DONE`.
-6. Stock akhir harus 11 BOX dan request tidak lagi aktif.
+5. Pastikan approval tidak mengubah stock.
+
+Catatan: production DB/RPC masih memerlukan migration terpisah untuk mendukung kontrak status `PENDING -> APPROVED`. Migration tersebut tidak termasuk task ini.
 
 > File SQL di folder `supabase/` adalah source/reference untuk database yang sudah dipasang. Jangan menjalankan ulang ke database production tanpa review.

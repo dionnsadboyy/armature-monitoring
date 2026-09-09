@@ -556,10 +556,6 @@ async function submitRequestStatus() {
   const item = currentMaterial();
   const next = nextRequestStatus(item);
   if (busy || !dataReady || !next) return;
-  if (!window.appDataService.requestStatusMutationSupported) {
-    setText("#request-feedback", "Production DB/RPC migration required later.");
-    return;
-  }
   setBusy(true);
   setText("#request-feedback", "Memproses...");
   let succeeded = false;

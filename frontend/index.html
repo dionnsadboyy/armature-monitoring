@@ -3,71 +3,38 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Armature Monitoring — Gedung 1</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../css/global.css">
-  <link rel="stylesheet" href="../css/dashboard.css">
-  <link rel="stylesheet" href="../css/modal.css">
+  <title>Armature Monitoring</title>
 </head>
-<body data-required-role="bop">
-  <div class="app-shell">
-    <aside class="sidebar">
-      <div class="brand"><img src="../assets/logo.png" alt="Armature Monitoring System"></div>
-      <nav aria-label="Navigasi Gedung 1">
-        <a class="active" href="#dashboard"><span>⌂</span>Dashboard</a>
-        <a href="#armature"><span>☷</span>Armature Availability</a>
-        <a href="#armature"><span>⌕</span>Update Armature</a>
-      <a id="logout" href="#logout"><span>↪</span>Logout</a></nav>
-      <div class="company-note">♧ <span>PT Denso Manufacturing Indonesia<br><small>Blower AC Motor</small></span></div>
-    </aside>
+<body>
+  <main role="status" aria-live="polite">Memeriksa sesi...</main>
 
-    <main id="dashboard" class="dashboard">
-      <header class="topbar">
-        <div><p class="eyebrow">Gedung 1 / BOP</p><h1>Armature Monitoring</h1><p class="subtitle">Update ketersediaan armature K62 berdasarkan kondisi aktual di gedung.</p></div>
-        <div class="header-actions"><button class="icon-button" aria-label="Notifikasi">♧</button><div class="user"><span class="avatar" aria-hidden="true">●</span><b id="user-name">BOP</b><small id="user-role">Gedung 1</small><span class="chevron" aria-hidden="true">⌄</span></div></div>
-      </header>
-
-      <div class="type-tabs"><button class="chip active" data-type="all">K62</button></div>
-      <section class="summary-panel" aria-label="Ringkasan material"><article><span class="summary-icon">▣</span><div><small>Total Material</small><strong id="summary-material-count">- <em>(K62)</em></strong></div></article><article><span class="summary-icon">▣</span><div><small>Total Quantity (Box)</small><strong id="summary-total-quantity">- <em>(Total semua material)</em></strong></div></article><p>ⓘ <span>Data dapat diupdate pada checkpoint kerja<br>(± 10:00, 12:00, 14:30, 16:30)</span></p></section>
-
-      <section id="armature" class="materials"><div id="grid" class="card-grid"></div><p id="loading" class="empty-state" role="status">Memuat data material...</p><p id="empty" class="empty-state">Material tidak ditemukan.</p><p id="dashboard-error" class="empty-state" role="alert"></p></section>
-    </main>
-  </div>
-
-  <div id="backdrop" class="modal-backdrop" aria-hidden="true">
-    <section class="stock-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <button id="close-modal" class="modal-close" aria-label="Tutup">×</button>
-      <header class="stock-heading"><div class="modal-part"><i></i><b id="m-part">A:0130</b><span id="m-type">K62</span></div><h2 id="modal-title">Armature 0130</h2><p><mark id="m-local">CKD</mark> <span id="m-konmi">(Konmi CKD / Ekspor)</span></p><img src="../assets/armature.png" alt="Armature"></header>
-      <section class="stock-current"><div><small>Current Stock</small><strong id="m-qty">8 <span>BOX</span></strong><b id="m-status" class="status ready">READY</b></div><div><small>Last Update</small><b id="m-update">07 Sep 2026 · 09:42</b><em>by BOP (Gedung 1)</em></div></section>
-      <button id="request-preview" class="request-preview" type="button"><header><h3>Request Material dari Gedung 2</h3><span aria-hidden="true">›</span></header><div><small>Jumlah diminta</small><strong id="request-quantity">12 <span>BOX</span></strong></div><div><small>Status request</small><b id="request-status" class="waiting">PENDING</b></div></button>
-
-      <form id="quantity-form" class="quantity-form" hidden>
-        <label id="quantity-label" for="quantity-input">Quantity (BOX)</label>
-        <input id="quantity-input" name="quantity" type="number" step="1" min="0" required inputmode="numeric">
-        <p id="quantity-help"></p>
-        <div class="stock-actions"><button id="quantity-cancel" type="button">Batal</button><button id="quantity-submit" class="primary" type="submit">Simpan</button></div>
-      </form>
-      <p id="action-feedback" class="action-feedback" role="status"></p>
-      <footer id="modal-primary-actions" class="stock-actions"><button id="update-stock">▣ &nbsp; Update Stock</button><button id="handle-request" class="primary">▣ &nbsp; Handle Request</button></footer>
-    </section>
-  </div>
-
-  <div id="request-backdrop" class="request-backdrop" aria-hidden="true">
-    <section class="request-modal" role="dialog" aria-modal="true" aria-labelledby="request-title">
-      <button id="close-request" class="modal-close" aria-label="Tutup">×</button>
-      <header class="request-title"><span>▣</span><div><h2 id="request-title">Handle Request</h2><p>Kelola permintaan material dari Gedung 2</p></div></header>
-      <div class="request-columns">
-        <section class="request-left"><div class="request-product"><div class="request-image"><img src="../assets/armature.png" alt="Armature"></div><div><div class="modal-part"><i></i><b id="r-part">A:0121</b><span id="r-type">K62</span></div><h3 id="r-title">Armature 0121</h3><p><mark id="r-local">Lokal</mark> <span id="r-konmi">(Konmi LOCAL)</span></p></div></div><div class="spec-grid"><div>◉<small>Warna</small><b id="r-color">Biru</b></div><div>◇<small>Tipe</small><b id="r-type-detail">K62</b></div><div>♧<small>Supply Type</small><b id="r-supply">LOCAL</b></div><div>◇<small>Local / CKD</small><b id="r-local-detail">Lokal</b></div></div><div class="request-stats"><div><span>▣</span><small>Stok tersedia · Gedung 1</small><strong id="r-stock">12 <em>BOX</em></strong><b id="r-stock-status" class="status ready">READY</b></div><div><span>▣</span><small>Permintaan · Gedung 2</small><strong id="r-request-quantity">12 <em>BOX</em></strong><b id="r-request-status" class="status waiting">PENDING</b></div></div><section class="information"><h3>Request yang akan diproses</h3><div class="info-grid"><p>♙ <span>Dari<b id="r-requester">-</b></span></p><p>♢ <span>Status saat ini<b id="r-status-text" class="waiting">PENDING</b></span></p><p>◷ <span>Dibuat pada<b id="r-date">-</b></span></p></div></section></section>
-        <section class="request-right"><div class="notice"><span>ⓘ</span><div><b>Action request ini</b><p>PENDING → ONGOING → DONE. Saat DONE, stok bertambah sesuai jumlah request.</p></div></div><h3>Pilih tindakan</h3><div class="status-options"><button class="active" data-status="PENDING"><span>◉</span><div><b>Belum diproses</b><small>Request tetap menunggu tindakan BOP.</small></div><em>Pilih</em></button><button data-status="ONGOING"><span>◉</span><div><b>Sedang disiapkan</b><small>Material sedang disiapkan oleh BOP.</small></div><em>Pilih</em></button><button data-status="DONE"><span>✓</span><div><b>Selesaikan request</b><small>Stok akan bertambah sesuai jumlah request.</small></div><em>Pilih</em></button></div><p id="request-feedback" class="request-feedback" role="status"></p><footer><button id="cancel-request">Tutup</button><button id="save-request" class="primary">▣ &nbsp; Simpan Perubahan</button></footer></section>
-      </div>
-    </section>
-  </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../js/config.js"></script>
-  <script src="../js/supabase.js"></script>
-  <script src="../js/auth.js"></script>
-  <script src="../js/bop.js"></script>
+  <script src="./js/config.js"></script>
+  <script src="./js/supabase.js"></script>
+  <script src="./js/auth.js"></script>
+  <script>
+    (() => {
+      const roleRoutes = {
+        bop: "./GEDUNG1/index.html",
+        viewer: "./GEDUNG2/index.html",
+      };
+      const loginRoute = "./LOGIN/index.html";
+
+      async function routeFromRoot() {
+        try {
+          const authenticated = await window.authService.getAuthenticatedProfile();
+          const destination = authenticated && roleRoutes[authenticated.profile.role];
+
+          window.location.replace(destination || loginRoute);
+        } catch (error) {
+          console.error("Root session gateway error:", error);
+          await window.supabaseClient.auth.signOut();
+          window.location.replace(loginRoute);
+        }
+      }
+
+      routeFromRoot();
+    })();
+  </script>
 </body>
 </html>

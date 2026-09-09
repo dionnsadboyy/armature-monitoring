@@ -1,16 +1,15 @@
 (() => {
-  const config = window.APP_CONFIG;
+  const config = window.ARMATURE_CONFIG;
 
   if (!config) {
-    throw new Error("APP_CONFIG tidak ditemukan.");
+    throw new Error("ARMATURE_CONFIG tidak ditemukan.");
   }
 
   const url = config.SUPABASE_URL;
   const key = config.SUPABASE_PUBLISHABLE_KEY;
 
-  if (!url || !key) {
-    console.error("APP_CONFIG:", config);
-    throw new Error("Supabase config belum diisi.");
+  if (!url || !key || url.startsWith("YOUR_") || key.startsWith("YOUR_")) {
+    throw new Error("Supabase config DEV belum diisi.");
   }
 
   if (!window.supabase) {
@@ -21,5 +20,5 @@
     window.supabaseClient = window.supabase.createClient(url, key);
   }
 
-  console.log("✅ Supabase connected");
+  console.log("Supabase client initialized");
 })();

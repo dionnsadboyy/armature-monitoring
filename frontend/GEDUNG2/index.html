@@ -32,6 +32,18 @@
       <div class="type-tabs"><button class="chip active" data-type="all">K62</button></div>
       <section class="summary-panel" aria-label="Ringkasan material"><article><span class="summary-icon">▣</span><div><small>Total Material</small><strong id="summary-material-count">- <em>(K62)</em></strong></div></article><article><span class="summary-icon">▣</span><div><small>Total Quantity (Box)</small><strong id="summary-total-quantity">- <em>(Total semua material)</em></strong></div></article><p>ⓘ <span>Gunakan material sesuai stok tersedia.<br>Request diproses oleh BOP.</span></p></section>
 
+      <section id="active-requests" class="active-request-panel" hidden aria-labelledby="active-request-title">
+        <header class="active-request-header"><div><h2 id="active-request-title">REQUEST GEDUNG 2</h2><p>Urutan kebutuhan material</p></div><small>Atur urutan material sesuai kebutuhan produksi.</small></header>
+        <div id="active-request-list" class="active-request-list" role="list"></div>
+        <p id="active-request-empty" class="active-request-empty">Belum ada active request.</p>
+        <p id="active-request-feedback" class="active-request-feedback" role="status"></p>
+      </section>
+      <section id="request-history" class="request-history-panel" hidden aria-labelledby="request-history-title">
+        <header class="request-history-header"><div><h2 id="request-history-title">REQUEST HISTORY</h2><p>Request yang telah disetujui.</p></div></header>
+        <div id="request-history-list" class="request-history-list" role="list"></div>
+        <p id="request-history-empty" class="active-request-empty">Belum ada request yang disetujui.</p>
+        <p id="request-history-feedback" class="active-request-feedback" role="status"></p>
+      </section>
       <section id="armature" class="materials"><div id="grid" class="card-grid"></div><p id="loading" class="empty-state" role="status">Memuat data material...</p><p id="empty" class="empty-state">Material tidak ditemukan.</p><p id="dashboard-error" class="empty-state" role="alert"></p></section>
     </main>
   </div>
@@ -57,6 +69,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/config.js"></script>
   <script src="../js/supabase.js"></script>
+  <script src="../js/data-service.js"></script>
   <script src="../js/auth.js"></script>
   <script src="../js/viewer.js"></script>
 </body>

@@ -3,8 +3,6 @@
     throw new Error("Supabase client belum tersedia.");
   }
 
-  const requestStatusMutationSupported = window.ARMATURE_CONFIG.REQUEST_STATUS_MUTATION_SUPPORTED !== false;
-
   // Keep page code independent from Supabase call details.
   // Supabase remains the only source of truth in every environment.
   const loadMaterials = () => {
@@ -29,6 +27,5 @@
     loadMaterials,
     loadRequestHistory,
     callRpc,
-    requestStatusMutationSupported,
   };
 })();
