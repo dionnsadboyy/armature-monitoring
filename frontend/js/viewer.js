@@ -87,7 +87,8 @@ function getStockStatus(material) {
 function hasActiveRequest(material) {
   return (
     material.active_request_id !== null &&
-    material.active_request_id !== undefined
+    material.active_request_id !== undefined &&
+    ["PENDING", "ONGOING"].includes(material.active_request_status)
   );
 }
 
@@ -104,8 +105,8 @@ function getMaterialRequestHistory(material) {
         request.status === "DONE",
     )
     .sort((left, right) => {
-      const leftTime = Date.parse(left.handled_at || "") || 0;
-      const rightTime = Date.parse(right.handled_at || "") || 0;
+      const leftTime = Date.parse(left.completed_at || left.handled_at || "") || 0;
+      const rightTime = Date.parse(right.completed_at || right.handled_at || "") || 0;
       return (
         rightTime - leftTime || String(right.id).localeCompare(String(left.id))
       );
@@ -120,7 +121,7 @@ function renderMaterialRequestHistory(material) {
         .map(
           (request) => `<div class="material-history-item">
           <b>${Number(request.requested_quantity_box) || 0} BOX</b>
-          <small>DONE · ${escapeHtml(formatDateTime(request.handled_at))} · ${escapeHtml(displayValue(request.handled_by))}</small>
+          <small>DONE · ${escapeHtml(formatDateTime(request.completed_at || request.handled_at))} · ${escapeHtml(displayValue(request.handled_by))}</small>
         </div>`,
         )
         .join("")
@@ -206,7 +207,7 @@ function renderActiveRequests(materialRows, resetOrder = true) {
   list.innerHTML = activeRequestOrder
     .map((material, index) => {
       const status = material.active_request_status;
-      const statusClass = status === "ONGOING" ? "approved" : "waiting";
+      const statusClass = status === "ONGOING" ? "ongoing" : "waiting";
       return `<article class="active-request-item" data-request-id="${escapeHtml(material.active_request_id)}" draggable="${!requestOrderSaving}" role="listitem" aria-label="Request ${escapeHtml(material.part_number)} nomor ${index + 1}">
       <strong class="active-request-number">#${index + 1}</strong>
       <div class="active-request-detail"><b>${escapeHtml(material.part_number)}</b><span>${Number(material.active_request_quantity_box) || 0} BOX</span><small class="${statusClass}">${status}</small></div>
@@ -227,8 +228,8 @@ function renderRequestHistory(historyRows) {
   const history = (historyRows || [])
     .filter((request) => request.status === "DONE")
     .sort((left, right) => {
-      const leftTime = Date.parse(left.handled_at || "") || 0;
-      const rightTime = Date.parse(right.handled_at || "") || 0;
+      const leftTime = Date.parse(left.completed_at || left.handled_at || "") || 0;
+      const rightTime = Date.parse(right.completed_at || right.handled_at || "") || 0;
       return (
         rightTime - leftTime || String(right.id).localeCompare(String(left.id))
       );
@@ -239,7 +240,7 @@ function renderRequestHistory(historyRows) {
     .map(
       (request) => `<article class="request-history-item" role="listitem">
     <span class="request-history-check" aria-hidden="true">✓</span>
-    <div><b>${escapeHtml(request.part_number)} · ${Number(request.requested_quantity_box) || 0} BOX</b><small>DONE</small><span>${escapeHtml(formatDateTime(request.handled_at))} · ${escapeHtml(displayValue(request.handled_by))}</span></div>
+    <div><b>${escapeHtml(request.part_number)} · ${Number(request.requested_quantity_box) || 0} BOX</b><small>DONE</small><span>${escapeHtml(formatDateTime(request.completed_at || request.handled_at))} · ${escapeHtml(displayValue(request.handled_by))}</span></div>
   </article>`,
     )
     .join("");
@@ -249,6 +250,7 @@ function renderRequestHistory(historyRows) {
 
 async function loadRequestHistory() {
   const feedback = document.querySelector("#request-history-feedback");
+  const previousHistoryRows = requestHistoryRows;
   try {
     const { data, error } = await window.appDataService.loadRequestHistory();
     if (error) throw error;
@@ -258,8 +260,8 @@ async function loadRequestHistory() {
     if (feedback) feedback.textContent = "";
     return true;
   } catch (error) {
-    requestHistoryRows = [];
-    renderRequestHistory([]);
+    requestHistoryRows = previousHistoryRows;
+    renderRequestHistory(requestHistoryRows);
     renderCards();
     if (feedback) feedback.textContent = "Riwayat request tidak dapat dimuat.";
     return false;
@@ -304,7 +306,6 @@ async function persistActiveRequestOrder(previousOrder) {
     });
     activeRequestOrder = previousOrder;
     renderActiveRequests([], false);
-    await loadMaterials();
     if (feedback)
       feedback.textContent =
         "Urutan tidak dapat disimpan. Data dikembalikan ke urutan terakhir tersimpan.";
@@ -431,11 +432,10 @@ function populate(material) {
       "#request-quantity",
       `${displayValue(material.active_request_quantity_box)} BOX`,
     );
-    const approved = material.active_request_status === "APPROVED";
-    setText("#request-status", approved ? "✓ APPROVED" : "PENDING");
-    document.querySelector("#request-status").className = approved
-      ? "approved"
-      : "waiting";
+    const requestStatus = material.active_request_status;
+    setText("#request-status", requestStatus);
+    document.querySelector("#request-status").className =
+      requestStatus === "ONGOING" ? "ongoing" : "waiting";
     let statusMessage = document.querySelector("#request-status-message");
     if (!statusMessage) {
       statusMessage = document.createElement("small");
@@ -447,9 +447,9 @@ function populate(material) {
     }
     setText(
       "#request-status-message",
-      approved
-        ? "Request telah disetujui."
-        : "Request sedang menunggu persetujuan Gedung 1.",
+      requestStatus === "ONGOING"
+        ? "Request sedang diproses oleh Gedung 1."
+        : "Request baru, belum diproses.",
     );
   }
 }
@@ -474,6 +474,8 @@ function closeStock() {
 }
 
 async function loadMaterials() {
+  const previousMaterials = materials;
+  const previousHistoryRows = requestHistoryRows;
   loading.style.display = "block";
   empty.style.display = "none";
   dashboardError.style.display = "none";
@@ -495,12 +497,21 @@ async function loadMaterials() {
     return true;
   } catch (error) {
     console.error("Dashboard data error:", error);
-    dashboardError.textContent =
-      "Data tidak dapat dimuat. Muat ulang halaman sebelum melakukan aksi.";
-    dashboardError.style.display = "block";
-    grid.innerHTML = "";
-    setText("#summary-material-count", "-");
-    setText("#summary-total-quantity", "-");
+    if (previousMaterials.length) {
+      materials = previousMaterials;
+      requestHistoryRows = previousHistoryRows;
+      dataReady = true;
+      renderCards();
+      renderActiveRequests([], false);
+      renderRequestHistory(requestHistoryRows);
+    } else {
+      dashboardError.textContent =
+        "Data tidak dapat dimuat. Muat ulang halaman sebelum melakukan aksi.";
+      dashboardError.style.display = "block";
+      grid.innerHTML = "";
+      setText("#summary-material-count", "-");
+      setText("#summary-total-quantity", "-");
+    }
     return false;
   } finally {
     loading.style.display = "none";
@@ -667,14 +678,12 @@ async function submitQuantity(event) {
   if (!rpcName) return;
   setBusy(true);
   setText("#action-feedback", "Memproses...");
-  let committed = false;
   try {
     const { error } = await window.appDataService.callRpc(rpcName, {
       p_armature_id: item.id,
       p_quantity_box: quantity,
     });
     if (error) throw error;
-    committed = true;
     $("#quantity-form").reset();
     setQuantityFormVisible(false);
     const refreshed = await loadMaterials();
@@ -690,13 +699,6 @@ async function submitQuantity(event) {
       "#action-feedback",
       "Aksi gagal dikonfirmasi. Periksa koneksi dan muat ulang data sebelum mencoba lagi.",
     );
-    // Refresh after rejection too: another user may have changed stock/request.
-    await loadMaterials();
-    if (committed)
-      setText(
-        "#action-feedback",
-        "Tersimpan. Muat ulang halaman untuk melihat data terbaru.",
-      );
   } finally {
     setBusy(false);
   }

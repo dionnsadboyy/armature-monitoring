@@ -79,8 +79,8 @@ function getMaterialRequestHistory(material) {
         request.status === "DONE",
     )
     .sort((left, right) => {
-      const leftTime = Date.parse(left.handled_at || "") || 0;
-      const rightTime = Date.parse(right.handled_at || "") || 0;
+      const leftTime = Date.parse(left.completed_at || left.handled_at || "") || 0;
+      const rightTime = Date.parse(right.completed_at || right.handled_at || "") || 0;
       return rightTime - leftTime || String(right.id).localeCompare(String(left.id));
     })
     .slice(0, MAX_CARD_REQUEST_HISTORY);
@@ -91,7 +91,7 @@ function renderMaterialRequestHistory(material) {
   const entries = history.length
     ? history.map((request) => `<div class="material-history-item">
           <b>${Number(request.requested_quantity_box) || 0} BOX</b>
-          <small>DONE · ${escapeHtml(formatDateTime(request.handled_at))} · ${escapeHtml(displayValue(request.handled_by))}</small>
+          <small>DONE · ${escapeHtml(formatDateTime(request.completed_at || request.handled_at))} · ${escapeHtml(displayValue(request.handled_by))}</small>
         </div>`).join("")
     : `<small class="material-history-empty">Belum ada riwayat request.</small>`;
 
@@ -182,15 +182,15 @@ function renderRequestHistory(historyRows) {
   const history = (historyRows || [])
     .filter((request) => request.status === "DONE")
     .sort((left, right) => {
-      const leftTime = Date.parse(left.handled_at || "") || 0;
-      const rightTime = Date.parse(right.handled_at || "") || 0;
+      const leftTime = Date.parse(left.completed_at || left.handled_at || "") || 0;
+      const rightTime = Date.parse(right.completed_at || right.handled_at || "") || 0;
       return rightTime - leftTime || String(right.id).localeCompare(String(left.id));
     });
 
   panel.hidden = false;
   list.innerHTML = history.map((request) => `<article class="request-history-item" role="listitem">
     <span class="request-history-check" aria-hidden="true">✓</span>
-    <div><b>${escapeHtml(request.part_number)} · ${Number(request.requested_quantity_box) || 0} BOX</b><small>DONE</small><span>${escapeHtml(formatDateTime(request.handled_at))} · ${escapeHtml(displayValue(request.handled_by))}</span></div>
+    <div><b>${escapeHtml(request.part_number)} · ${Number(request.requested_quantity_box) || 0} BOX</b><small>DONE</small><span>${escapeHtml(formatDateTime(request.completed_at || request.handled_at))} · ${escapeHtml(displayValue(request.handled_by))}</span></div>
   </article>`).join("");
   const emptyHistory = document.querySelector("#request-history-empty");
   if (emptyHistory) emptyHistory.hidden = history.length > 0;
@@ -198,6 +198,7 @@ function renderRequestHistory(historyRows) {
 
 async function loadRequestHistory() {
   const feedback = document.querySelector("#request-history-feedback");
+  const previousHistoryRows = requestHistoryRows;
   try {
     const { data, error } = await window.appDataService.loadRequestHistory();
     if (error) throw error;
@@ -207,8 +208,8 @@ async function loadRequestHistory() {
     if (feedback) feedback.textContent = "";
     return true;
   } catch (error) {
-    requestHistoryRows = [];
-    renderRequestHistory([]);
+    requestHistoryRows = previousHistoryRows;
+    renderRequestHistory(requestHistoryRows);
     renderCards();
     if (feedback) feedback.textContent = "Riwayat request tidak dapat dimuat.";
     return false;
@@ -277,6 +278,8 @@ function closeStock() {
 }
 
 async function loadMaterials() {
+  const previousMaterials = materials;
+  const previousHistoryRows = requestHistoryRows;
   loading.style.display = "block";
   empty.style.display = "none";
   dashboardError.style.display = "none";
@@ -298,11 +301,20 @@ async function loadMaterials() {
     return true;
   } catch (error) {
     console.error("Dashboard data error:", error);
-    dashboardError.textContent = "Data tidak dapat dimuat. Muat ulang halaman sebelum melakukan aksi.";
-    dashboardError.style.display = "block";
-    grid.innerHTML = "";
-    setText("#summary-material-count", "-");
-    setText("#summary-total-quantity", "-");
+    if (previousMaterials.length) {
+      materials = previousMaterials;
+      requestHistoryRows = previousHistoryRows;
+      dataReady = true;
+      renderCards();
+      renderActiveRequests(materials);
+      renderRequestHistory(requestHistoryRows);
+    } else {
+      dashboardError.textContent = "Data tidak dapat dimuat. Muat ulang halaman sebelum melakukan aksi.";
+      dashboardError.style.display = "block";
+      grid.innerHTML = "";
+      setText("#summary-material-count", "-");
+      setText("#summary-total-quantity", "-");
+    }
     return false;
   } finally {
     loading.style.display = "none";
@@ -437,14 +449,12 @@ async function submitQuantity(event) {
   if (!rpcName) return;
   setBusy(true);
   setText("#action-feedback", "Memproses...");
-  let committed = false;
   try {
     const { error } = await window.appDataService.callRpc(rpcName, {
       p_armature_id: item.id,
       p_quantity_box: quantity,
     });
     if (error) throw error;
-    committed = true;
     $("#quantity-form").reset();
     setQuantityFormVisible(false);
     const refreshed = await loadMaterials();
@@ -452,9 +462,6 @@ async function submitQuantity(event) {
   } catch (error) {
     console.error(rpcName, error);
     setText("#action-feedback", "Aksi gagal dikonfirmasi. Periksa koneksi dan muat ulang data sebelum mencoba lagi.");
-    // Refresh after rejection too: another user may have changed stock/request.
-    await loadMaterials();
-    if (committed) setText("#action-feedback", "Tersimpan. Muat ulang halaman untuk melihat data terbaru.");
   } finally {
     setBusy(false);
   }
@@ -577,17 +584,19 @@ async function submitRequestStatus() {
       p_status: next,
     });
   }
+  if (!succeeded) {
+    setBusy(false);
+    if (currentMaterial() && hasActiveRequest(currentMaterial())) openRequest();
+    setText("#request-feedback", "Status gagal dikonfirmasi. Periksa status terbaru sebelum mencoba lagi.");
+    return;
+  }
+
   const refreshed = await loadMaterials();
   setBusy(false);
-  if (succeeded) {
-    closeRequest();
-    if (refreshed && currentMaterial()) {
-      openStock(currentMaterial());
-      setText("#action-feedback", `Request diperbarui menjadi ${next}.`);
-    }
-  } else {
-    if (refreshed && hasActiveRequest(currentMaterial() || {})) openRequest();
-    setText("#request-feedback", "Status gagal dikonfirmasi. Periksa status terbaru sebelum mencoba lagi.");
+  closeRequest();
+  if (refreshed && currentMaterial()) {
+    openStock(currentMaterial());
+    setText("#action-feedback", `Request diperbarui menjadi ${next}.`);
   }
 }
 
@@ -608,17 +617,19 @@ async function deleteRequest() {
   } catch (error) {
     console.error("delete_armature_request:", error);
   }
+  if (!succeeded) {
+    setBusy(false);
+    if (currentMaterial() && hasActiveRequest(currentMaterial())) openRequest();
+    setText("#request-feedback", "Request gagal dihapus. Periksa status terbaru sebelum mencoba lagi.");
+    return;
+  }
+
   const refreshed = await loadMaterials();
   setBusy(false);
-  if (succeeded) {
-    closeRequest();
-    if (refreshed && currentMaterial()) {
-      openStock(currentMaterial());
-      setText("#action-feedback", "Request dihapus.");
-    }
-  } else {
-    if (refreshed && hasActiveRequest(currentMaterial() || {})) openRequest();
-    setText("#request-feedback", "Request gagal dihapus. Periksa status terbaru sebelum mencoba lagi.");
+  closeRequest();
+  if (refreshed && currentMaterial()) {
+    openStock(currentMaterial());
+    setText("#action-feedback", "Request dihapus.");
   }
 }
 $("#handle-request").addEventListener("click", openRequest);
