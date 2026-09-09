@@ -125,3 +125,48 @@ select
   active_request_status
 from public.armature_dashboard
 order by part_number;
+
+-- 13) DEV-only pending request-order checks.
+-- Expected active rows: sequence starts at 1, has no duplicates, and has no gaps.
+with active_requests as (
+  select request_sequence
+  from public.armature_requests
+  where status = 'PENDING'
+)
+select
+  count(*) as active_request_count,
+  count(distinct request_sequence) as distinct_sequence_count,
+  coalesce(min(request_sequence), 0) as min_sequence,
+  coalesce(max(request_sequence), 0) as max_sequence,
+  count(*) = count(distinct request_sequence)
+    and (count(*) = 0 or (min(request_sequence) = 1 and max(request_sequence) = count(*)))
+    as sequence_is_contiguous
+from active_requests;
+
+-- 14) Dashboard must expose the persisted sequence for pending requests.
+select part_number, active_request_status, request_sequence
+from public.armature_dashboard
+where active_request_id is not null
+order by request_sequence asc nulls last, active_request_at asc, id asc;
+
+-- 15) Approved history must be newest handled request first.
+select part_number, requested_quantity_box, status, handled_at, handled_by
+from public.armature_request_history
+order by handled_at desc, id desc;
+
+-- 16) Only authenticated callers receive RPC access; the RPC itself limits
+-- execution to Viewer through its role check.
+select
+  has_function_privilege('anon', 'public.reorder_armature_requests(uuid[])', 'EXECUTE')
+    as anon_reorder_requests,
+  has_function_privilege('authenticated', 'public.reorder_armature_requests(uuid[])', 'EXECUTE')
+    as authenticated_reorder_requests;
+
+-- Expected: anon_reorder_requests = FALSE; authenticated_reorder_requests = TRUE.
+
+-- 17) Delete RPC is authenticated-only; its BOP/status checks are inside RPC.
+select
+  has_function_privilege('anon', 'public.delete_armature_request(uuid)', 'EXECUTE')
+    as anon_delete_request,
+  has_function_privilege('authenticated', 'public.delete_armature_request(uuid)', 'EXECUTE')
+    as authenticated_delete_request;

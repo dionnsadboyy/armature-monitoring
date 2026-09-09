@@ -7,6 +7,8 @@ let selectedId = null;
 let busy = false;
 let dataReady = false;
 let actionMode = null;
+let requestHistoryRows = [];
+const MAX_CARD_REQUEST_HISTORY = 3;
 const isViewer = false;
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
@@ -57,12 +59,46 @@ function getStockStatus(material) {
 }
 
 function hasActiveRequest(material) {
-  return material.active_request_id !== null && material.active_request_id !== undefined;
+  return (
+    material.active_request_id !== null &&
+    material.active_request_id !== undefined &&
+    ["PENDING", "ONGOING"].includes(material.active_request_status)
+  );
 }
 
 function requestLabel(material) {
   if (!hasActiveRequest(material)) return "";
   return `<span class="request-label">Request ${escapeHtml(displayValue(material.active_request_quantity_box))} BOX · ${escapeHtml(displayValue(material.active_request_status))}</span>`;
+}
+
+function getMaterialRequestHistory(material) {
+  return requestHistoryRows
+    .filter(
+      (request) =>
+        String(request.armature_id) === String(material.id) &&
+        request.status === "DONE",
+    )
+    .sort((left, right) => {
+      const leftTime = Date.parse(left.handled_at || "") || 0;
+      const rightTime = Date.parse(right.handled_at || "") || 0;
+      return rightTime - leftTime || String(right.id).localeCompare(String(left.id));
+    })
+    .slice(0, MAX_CARD_REQUEST_HISTORY);
+}
+
+function renderMaterialRequestHistory(material) {
+  const history = getMaterialRequestHistory(material);
+  const entries = history.length
+    ? history.map((request) => `<div class="material-history-item">
+          <b>${Number(request.requested_quantity_box) || 0} BOX</b>
+          <small>DONE · ${escapeHtml(formatDateTime(request.handled_at))} · ${escapeHtml(displayValue(request.handled_by))}</small>
+        </div>`).join("")
+    : `<small class="material-history-empty">Belum ada riwayat request.</small>`;
+
+  return `<section class="material-history" aria-label="Riwayat request ${escapeHtml(material.part_number)}">
+    <div class="material-history-header"><small>Riwayat Request</small><b>${history.length ? `${history.length} terakhir` : "-"}</b></div>
+    <div class="material-history-list">${entries}</div>
+  </section>`;
 }
 
 function statusClass(status) {
@@ -85,7 +121,7 @@ function renderCards() {
 
     return `<article class="material-card tone-${getTone(material.color)}" data-id="${escapeHtml(material.id)}" tabindex="0" role="button" aria-label="Buka detail armature ${part}">
       <div class="card-head"><div class="material-code"><i></i><b>${part}</b><span class="type-pill">${escapeHtml(displayValue(material.armature_type))}</span></div><img class="mini-armature" src="../assets/armature.png" alt="Armature ${part}"></div>
-      <div class="card-body"><h2>Armature ${part.replace(":", "")}</h2><p class="card-meta"><span class="tag ${supplyClass}">${supplyLabel}</span>(Konmi ${escapeHtml(displayValue(material.konmi))})${isViewer ? ` · Warna ${escapeHtml(displayValue(material.color))}` : ""}</p>${requestLabel(material)}
+      <div class="card-body"><h2>Armature ${part.replace(":", "")}</h2><p class="card-meta"><span class="tag ${supplyClass}">${supplyLabel}</span>(Konmi ${escapeHtml(displayValue(material.konmi))})${isViewer ? ` · Warna ${escapeHtml(displayValue(material.color))}` : ""}</p>${requestLabel(material)}${renderMaterialRequestHistory(material)}
       <div class="quantity-row"><small>Quantity</small><strong>${quantity} <span>BOX</span></strong><b class="status ${statusClass(status)}">${escapeHtml(status)}</b></div>
       <div class="card-footer"><div>▣<span><small>Last Update</small><b>${formatDateTime(material.last_stock_update)}</b></span></div><div>♙<span><small>Updated by</small><b>${escapeHtml(displayValue(material.stock_updated_by))}</b></span></div></div></div>
     </article>`;
@@ -93,6 +129,90 @@ function renderCards() {
 
   empty.style.display = materials.length ? "none" : "block";
   renderSummary();
+}
+
+function getActiveRequests(materialRows) {
+  return (materialRows || [])
+    .filter(
+      (material) =>
+        material.active_request_id &&
+        ["PENDING", "ONGOING"].includes(material.active_request_status),
+    )
+    .sort((left, right) => {
+      const leftSequence = Number(left.request_sequence);
+      const rightSequence = Number(right.request_sequence);
+      const leftHasSequence = Number.isSafeInteger(leftSequence) && leftSequence > 0;
+      const rightHasSequence = Number.isSafeInteger(rightSequence) && rightSequence > 0;
+      if (leftHasSequence || rightHasSequence) {
+        if (!leftHasSequence) return 1;
+        if (!rightHasSequence) return -1;
+        if (leftSequence !== rightSequence) return leftSequence - rightSequence;
+      }
+      const leftTime = Date.parse(left.active_request_at || "") || 0;
+      const rightTime = Date.parse(right.active_request_at || "") || 0;
+      return leftTime - rightTime || String(left.id).localeCompare(String(right.id));
+    });
+}
+
+function renderActiveRequests(materialRows) {
+  const panel = document.querySelector("#active-requests");
+  const list = document.querySelector("#active-request-list");
+  if (!panel || !list) return;
+
+  const activeRequests = getActiveRequests(materialRows);
+  panel.hidden = false;
+  list.innerHTML = activeRequests.map((material, index) => {
+    const status = material.active_request_status;
+    const statusClass = "waiting";
+    return `<article class="active-request-item" role="listitem" aria-label="Request ${escapeHtml(material.part_number)} nomor ${index + 1}">
+      <strong class="active-request-number">#${index + 1}</strong>
+      <div class="active-request-detail"><b>${escapeHtml(material.part_number)}</b><span>${Number(material.active_request_quantity_box) || 0} BOX</span><small class="${statusClass}">${status}</small></div>
+    </article>`;
+  }).join("");
+
+  const emptyRequests = document.querySelector("#active-request-empty");
+  if (emptyRequests) emptyRequests.hidden = activeRequests.length > 0;
+}
+
+function renderRequestHistory(historyRows) {
+  const panel = document.querySelector("#request-history");
+  const list = document.querySelector("#request-history-list");
+  if (!panel || !list) return;
+
+  const history = (historyRows || [])
+    .filter((request) => request.status === "DONE")
+    .sort((left, right) => {
+      const leftTime = Date.parse(left.handled_at || "") || 0;
+      const rightTime = Date.parse(right.handled_at || "") || 0;
+      return rightTime - leftTime || String(right.id).localeCompare(String(left.id));
+    });
+
+  panel.hidden = false;
+  list.innerHTML = history.map((request) => `<article class="request-history-item" role="listitem">
+    <span class="request-history-check" aria-hidden="true">✓</span>
+    <div><b>${escapeHtml(request.part_number)} · ${Number(request.requested_quantity_box) || 0} BOX</b><small>DONE</small><span>${escapeHtml(formatDateTime(request.handled_at))} · ${escapeHtml(displayValue(request.handled_by))}</span></div>
+  </article>`).join("");
+  const emptyHistory = document.querySelector("#request-history-empty");
+  if (emptyHistory) emptyHistory.hidden = history.length > 0;
+}
+
+async function loadRequestHistory() {
+  const feedback = document.querySelector("#request-history-feedback");
+  try {
+    const { data, error } = await window.appDataService.loadRequestHistory();
+    if (error) throw error;
+    requestHistoryRows = data || [];
+    renderRequestHistory(requestHistoryRows);
+    renderCards();
+    if (feedback) feedback.textContent = "";
+    return true;
+  } catch (error) {
+    requestHistoryRows = [];
+    renderRequestHistory([]);
+    renderCards();
+    if (feedback) feedback.textContent = "Riwayat request tidak dapat dimuat.";
+    return false;
+  }
 }
 
 function populate(material) {
@@ -133,7 +253,7 @@ function populate(material) {
   if (requestAvailable) {
     setText("#request-quantity", `${displayValue(material.active_request_quantity_box)} BOX`);
     setText("#request-status", displayValue(material.active_request_status));
-    document.querySelector("#request-status").className = material.active_request_status === "ONGOING" ? "ongoing" : "waiting";
+    document.querySelector("#request-status").className = "waiting";
   }
 }
 
@@ -162,16 +282,13 @@ async function loadMaterials() {
   dashboardError.style.display = "none";
   dataReady = false;
   try {
-    const { data, error } = await window.supabaseClient
-      .from("armature_dashboard")
-      .select("*")
-      .eq("armature_type", "K62")
-      .eq("is_active", true)
-      .order("part_number");
+    const { data, error } = await window.appDataService.loadMaterials();
     if (error) throw error;
     materials = data || [];
     dataReady = true;
     renderCards();
+    renderActiveRequests(materials);
+    await loadRequestHistory();
     const selected = materials.find(item => item.id === selectedId);
     if (selected) populate(selected);
     else {
@@ -322,7 +439,7 @@ async function submitQuantity(event) {
   setText("#action-feedback", "Memproses...");
   let committed = false;
   try {
-    const { error } = await window.supabaseClient.rpc(rpcName, {
+    const { error } = await window.appDataService.callRpc(rpcName, {
       p_armature_id: item.id,
       p_quantity_box: quantity,
     });
@@ -349,9 +466,7 @@ $("#logout").addEventListener("click", async () => {
   if (busy) return;
   $("#logout").disabled = true;
   try {
-    const { error } = await window.supabaseClient.auth.signOut();
-    if (error) throw error;
-    window.location.assign("../LOGIN/index.html");
+    await window.authService.logout();
   } catch (error) {
     console.error("Logout error:", error);
     dashboardError.textContent = "Logout gagal. Silakan coba lagi.";
@@ -365,15 +480,48 @@ function nextRequestStatus(item) {
   return { PENDING: "ONGOING", ONGOING: "DONE" }[item.active_request_status] || null;
 }
 
+function setupRequestFlowUi() {
+  const options = document.querySelector(".status-options");
+  if (options) {
+    options.innerHTML = `<button class="active" data-status="ONGOING"><span>✓</span><div><b>Mulai Proses</b><small>Request sedang diproses oleh Gedung 1.</small></div><em>Pilih</em></button>`;
+  }
+  const notice = document.querySelector(".notice p");
+  if (notice) notice.textContent = "PENDING: request baru, belum diproses. ONGOING: sedang diproses oleh Gedung 1. DONE: selesai / material siap untuk Gedung 2.";
+}
+
 function refreshRequestActions() {
   const item = currentMaterial();
   const next = nextRequestStatus(item);
-  document.querySelectorAll(".status-options button").forEach(button => {
+  document.querySelectorAll(".status-options button").forEach((button) => {
+    button.dataset.status = next || "";
     button.disabled = busy || !dataReady || button.dataset.status !== next;
     button.classList.toggle("active", button.dataset.status === next);
+    const action = next === "ONGOING"
+      ? {
+          label: "Mulai Proses",
+          description: "Request sedang diproses oleh Gedung 1.",
+        }
+      : next === "DONE"
+        ? {
+            label: "Selesaikan Request",
+            description: "Request selesai / material siap untuk Gedung 2.",
+          }
+        : null;
+    if (action) {
+      button.querySelector("b").textContent = action.label;
+      button.querySelector("small").textContent = action.description;
+    }
   });
   $("#save-request").disabled = busy || !dataReady || !next;
-  setText("#save-request", next === "ONGOING" ? "Mulai proses → ONGOING" : next === "DONE" ? "Selesaikan → DONE" : "Tidak ada request aktif");
+  $("#delete-request").disabled = busy || !dataReady || !item || item.active_request_status !== "PENDING";
+  setText(
+    "#save-request",
+    next === "ONGOING"
+      ? "Mulai Proses"
+      : next === "DONE"
+        ? "Selesaikan Request"
+        : "Tidak ada request aktif",
+  );
 }
 
 function openRequest() {
@@ -390,7 +538,7 @@ function openRequest() {
     "#r-stock-status": getStockStatus(item)
   })) setText(selector, displayValue(value));
   $("#r-stock-status").className = `status ${statusClass(getStockStatus(item))}`;
-  $("#r-request-status").className = `status ${item.active_request_status === "ONGOING" ? "ongoing" : "waiting"}`;
+  $("#r-request-status").className = "status waiting";
   setText("#request-feedback", "");
   closeStock();
   $("#request-backdrop").classList.add("show");
@@ -408,18 +556,30 @@ async function submitRequestStatus() {
   const item = currentMaterial();
   const next = nextRequestStatus(item);
   if (busy || !dataReady || !next) return;
+  if (!window.appDataService.requestStatusMutationSupported) {
+    setText("#request-feedback", "Production DB/RPC migration required later.");
+    return;
+  }
   setBusy(true);
   setText("#request-feedback", "Memproses...");
   let succeeded = false;
   try {
-    const { error } = await window.supabaseClient.rpc("update_request_status", {
+    const rpcArgs = {
       p_request_id: item.active_request_id,
       p_status: next,
-    });
+    };
+    const { error } = await window.appDataService.callRpc("update_request_status", rpcArgs);
     if (error) throw error;
     succeeded = true;
   } catch (error) {
-    console.error("update_request_status:", error);
+    console.error("update_request_status failed:", {
+      message: error?.message,
+      code: error?.code,
+      details: error?.details,
+      hint: error?.hint,
+      p_request_id: item.active_request_id,
+      p_status: next,
+    });
   }
   const refreshed = await loadMaterials();
   setBusy(false);
@@ -434,11 +594,44 @@ async function submitRequestStatus() {
     setText("#request-feedback", "Status gagal dikonfirmasi. Periksa status terbaru sebelum mencoba lagi.");
   }
 }
+
+async function deleteRequest() {
+  const item = currentMaterial();
+  if (busy || !dataReady || !item || item.active_request_status !== "PENDING") return;
+  if (!window.confirm("Hapus request PENDING ini?")) return;
+
+  setBusy(true);
+  setText("#request-feedback", "Menghapus request...");
+  let succeeded = false;
+  try {
+    const { error } = await window.appDataService.callRpc("delete_armature_request", {
+      p_request_id: item.active_request_id,
+    });
+    if (error) throw error;
+    succeeded = true;
+  } catch (error) {
+    console.error("delete_armature_request:", error);
+  }
+  const refreshed = await loadMaterials();
+  setBusy(false);
+  if (succeeded) {
+    closeRequest();
+    if (refreshed && currentMaterial()) {
+      openStock(currentMaterial());
+      setText("#action-feedback", "Request dihapus.");
+    }
+  } else {
+    if (refreshed && hasActiveRequest(currentMaterial() || {})) openRequest();
+    setText("#request-feedback", "Request gagal dihapus. Periksa status terbaru sebelum mencoba lagi.");
+  }
+}
 $("#handle-request").addEventListener("click", openRequest);
 $("#request-preview").addEventListener("click", openRequest);
 $("#close-request").addEventListener("click", closeRequest);
 $("#cancel-request").addEventListener("click", closeRequest);
 $("#save-request").addEventListener("click", submitRequestStatus);
+$("#delete-request").addEventListener("click", deleteRequest);
 $("#request-backdrop").addEventListener("click", event => { if (event.target.id === "request-backdrop") closeRequest(); });
 
+setupRequestFlowUi();
 initializeDashboard();

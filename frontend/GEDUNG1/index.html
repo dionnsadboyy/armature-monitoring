@@ -32,6 +32,17 @@
       <div class="type-tabs"><button class="chip active" data-type="all">K62</button></div>
       <section class="summary-panel" aria-label="Ringkasan material"><article><span class="summary-icon">▣</span><div><small>Total Material</small><strong id="summary-material-count">- <em>(K62)</em></strong></div></article><article><span class="summary-icon">▣</span><div><small>Total Quantity (Box)</small><strong id="summary-total-quantity">- <em>(Total semua material)</em></strong></div></article><p>ⓘ <span>Data dapat diupdate pada checkpoint kerja<br>(± 10:00, 12:00, 14:30, 16:30)</span></p></section>
 
+      <section id="active-requests" class="active-request-panel read-only" hidden aria-labelledby="active-request-title">
+        <header class="active-request-header"><div><h2 id="active-request-title">REQUEST GEDUNG 2</h2><p>Urutan kebutuhan material</p></div><small>Urutan ditentukan oleh Gedung 2.</small></header>
+        <div id="active-request-list" class="active-request-list" role="list"></div>
+        <p id="active-request-empty" class="active-request-empty">Belum ada active request.</p>
+      </section>
+      <section id="request-history" class="request-history-panel" hidden aria-labelledby="request-history-title">
+        <header class="request-history-header"><div><h2 id="request-history-title">REQUEST HISTORY</h2><p>Request yang telah selesai.</p></div></header>
+        <div id="request-history-list" class="request-history-list" role="list"></div>
+        <p id="request-history-empty" class="active-request-empty">Belum ada request yang telah selesai.</p>
+        <p id="request-history-feedback" class="active-request-feedback" role="status"></p>
+      </section>
       <section id="armature" class="materials"><div id="grid" class="card-grid"></div><p id="loading" class="empty-state" role="status">Memuat data material...</p><p id="empty" class="empty-state">Material tidak ditemukan.</p><p id="dashboard-error" class="empty-state" role="alert"></p></section>
     </main>
   </div>
@@ -60,13 +71,14 @@
       <header class="request-title"><span>▣</span><div><h2 id="request-title">Handle Request</h2><p>Kelola permintaan material dari Gedung 2</p></div></header>
       <div class="request-columns">
         <section class="request-left"><div class="request-product"><div class="request-image"><img src="../assets/armature.png" alt="Armature"></div><div><div class="modal-part"><i></i><b id="r-part">A:0121</b><span id="r-type">K62</span></div><h3 id="r-title">Armature 0121</h3><p><mark id="r-local">Lokal</mark> <span id="r-konmi">(Konmi LOCAL)</span></p></div></div><div class="spec-grid"><div>◉<small>Warna</small><b id="r-color">Biru</b></div><div>◇<small>Tipe</small><b id="r-type-detail">K62</b></div><div>♧<small>Supply Type</small><b id="r-supply">LOCAL</b></div><div>◇<small>Local / CKD</small><b id="r-local-detail">Lokal</b></div></div><div class="request-stats"><div><span>▣</span><small>Stok tersedia · Gedung 1</small><strong id="r-stock">12 <em>BOX</em></strong><b id="r-stock-status" class="status ready">READY</b></div><div><span>▣</span><small>Permintaan · Gedung 2</small><strong id="r-request-quantity">12 <em>BOX</em></strong><b id="r-request-status" class="status waiting">PENDING</b></div></div><section class="information"><h3>Request yang akan diproses</h3><div class="info-grid"><p>♙ <span>Dari<b id="r-requester">-</b></span></p><p>♢ <span>Status saat ini<b id="r-status-text" class="waiting">PENDING</b></span></p><p>◷ <span>Dibuat pada<b id="r-date">-</b></span></p></div></section></section>
-        <section class="request-right"><div class="notice"><span>ⓘ</span><div><b>Action request ini</b><p>PENDING → ONGOING → DONE. Saat DONE, stok bertambah sesuai jumlah request.</p></div></div><h3>Pilih tindakan</h3><div class="status-options"><button class="active" data-status="PENDING"><span>◉</span><div><b>Belum diproses</b><small>Request tetap menunggu tindakan BOP.</small></div><em>Pilih</em></button><button data-status="ONGOING"><span>◉</span><div><b>Sedang disiapkan</b><small>Material sedang disiapkan oleh BOP.</small></div><em>Pilih</em></button><button data-status="DONE"><span>✓</span><div><b>Selesaikan request</b><small>Stok akan bertambah sesuai jumlah request.</small></div><em>Pilih</em></button></div><p id="request-feedback" class="request-feedback" role="status"></p><footer><button id="cancel-request">Tutup</button><button id="save-request" class="primary">▣ &nbsp; Simpan Perubahan</button></footer></section>
+        <section class="request-right"><div class="notice"><span>ⓘ</span><div><b>Action request ini</b><p>PENDING: request baru, belum diproses. ONGOING: sedang diproses oleh Gedung 1. DONE: selesai / material siap untuk Gedung 2.</p></div></div><h3>Pilih tindakan</h3><div class="status-options"><button class="active" data-status="ONGOING"><span>✓</span><div><b>Mulai Proses</b><small>Request sedang diproses oleh Gedung 1.</small></div><em>Pilih</em></button></div><p id="request-feedback" class="request-feedback" role="status"></p><footer><button id="cancel-request">Tutup</button><button id="delete-request" type="button">Delete Request</button><button id="save-request" class="primary">Mulai Proses</button></footer></section>
       </div>
     </section>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/config.js"></script>
   <script src="../js/supabase.js"></script>
+  <script src="../js/data-service.js"></script>
   <script src="../js/auth.js"></script>
   <script src="../js/bop.js"></script>
 </body>
