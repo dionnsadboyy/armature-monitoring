@@ -78,3 +78,4 @@ button:disabled{cursor:not-allowed;opacity:.55}
     transform: none !important;
   }
 }
+.ongoing{display:inline-block;padding:4px 8px;border-radius:8px;background:#d8f7e9;color:#128660;font-size:8px}

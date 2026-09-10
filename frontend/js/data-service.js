@@ -22,11 +22,17 @@
     .order("handled_at", { ascending: false })
     .order("id", { ascending: false });
 
+  const loadRunningStates = () => window.supabaseClient
+    .from("armature_running")
+    .select("machine_code,is_machine_down,armature_id,updated_at,updated_by")
+    .order("machine_code");
+
   const callRpc = (name, args) => window.supabaseClient.rpc(name, args);
 
   window.appDataService = {
     loadMaterials,
     loadRequestHistory,
+    loadRunningStates,
     callRpc,
   };
 })();

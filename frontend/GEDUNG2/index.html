@@ -6,7 +6,7 @@
   <title>Armature Monitoring — Gedung 2</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/global.css">
   <link rel="stylesheet" href="../css/dashboard.css">
   <link rel="stylesheet" href="../css/modal.css">
@@ -32,6 +32,11 @@
       <div class="type-tabs"><button class="chip active" data-type="all">K62</button></div>
       <section class="summary-panel" aria-label="Ringkasan material"><article><span class="summary-icon">▣</span><div><small>Total Material</small><strong id="summary-material-count">- <em>(K62)</em></strong></div></article><article><span class="summary-icon">▣</span><div><small>Total Quantity (Box)</small><strong id="summary-total-quantity">- <em>(Total semua material)</em></strong></div></article><p>ⓘ <span>Gunakan material sesuai stok tersedia.<br>Request diproses oleh BOP.</span></p></section>
 
+      <section id="armature-running" class="running-panel read-only" aria-labelledby="running-title">
+        <header class="running-header"><div><h2 id="running-title">ARMATURE RUNNING</h2><p>Kondisi Module dan Transfer Line saat ini.</p></div><small>Ditentukan oleh Gedung 1 / BOP.</small></header>
+        <div id="running-grid" class="running-grid"></div>
+        <p id="running-feedback" class="active-request-feedback" role="status"></p>
+      </section>
       <section id="active-requests" class="active-request-panel" hidden aria-labelledby="active-request-title">
         <header class="active-request-header"><div><h2 id="active-request-title">REQUEST GEDUNG 2</h2><p>Urutan kebutuhan material</p></div><small>Atur urutan material sesuai kebutuhan produksi.</small></header>
         <div id="active-request-list" class="active-request-list" role="list"></div>
@@ -39,10 +44,14 @@
         <p id="active-request-feedback" class="active-request-feedback" role="status"></p>
       </section>
       <section id="request-history" class="request-history-panel" hidden aria-labelledby="request-history-title">
-        <header class="request-history-header"><div><h2 id="request-history-title">REQUEST HISTORY</h2><p>Request yang telah disetujui.</p></div></header>
-        <div id="request-history-list" class="request-history-list" role="list"></div>
-        <p id="request-history-empty" class="active-request-empty">Belum ada request yang disetujui.</p>
-        <p id="request-history-feedback" class="active-request-feedback" role="status"></p>
+        <button id="request-history-toggle" class="request-history-toggle" type="button" aria-expanded="false" aria-controls="request-history-content">
+          <span class="request-history-toggle-icon" aria-hidden="true">↶</span><span><b id="request-history-title">Riwayat Request</b><small>Klik untuk melihat request yang sudah selesai.</small></span><em>Lihat semua</em><i aria-hidden="true">⌄</i>
+        </button>
+        <div id="request-history-content" class="request-history-content" hidden>
+          <div id="request-history-list" class="request-history-list" role="list"></div>
+          <p id="request-history-empty" class="active-request-empty">Belum ada request yang telah selesai.</p>
+          <p id="request-history-feedback" class="active-request-feedback" role="status"></p>
+        </div>
       </section>
       <section id="armature" class="materials"><div id="grid" class="card-grid"></div><p id="loading" class="empty-state" role="status">Memuat data material...</p><p id="empty" class="empty-state">Material tidak ditemukan.</p><p id="dashboard-error" class="empty-state" role="alert"></p></section>
     </main>
@@ -65,6 +74,7 @@
       <footer id="modal-primary-actions" class="stock-actions"><button id="update-stock">▣ &nbsp; DIGUNAKAN / USE</button><button id="handle-request" class="primary">▣ &nbsp; REQUEST</button></footer>
     </section>
   </div>
+
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/config.js"></script>

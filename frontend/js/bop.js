@@ -8,6 +8,10 @@ let busy = false;
 let dataReady = false;
 let actionMode = null;
 let requestHistoryRows = [];
+let runningStates = [];
+let selectedMachineCode = null;
+let runningDraftDown = false;
+let runningBusy = false;
 const MAX_CARD_REQUEST_HISTORY = 3;
 const isViewer = false;
 const $ = (selector) => document.querySelector(selector);
@@ -54,19 +58,43 @@ function formatMovementTime(value) {
   }).format(date);
 }
 
+function cardIcon(name) {
+  const icons = {
+    box: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4.5 7.7 7.5 4.2 7.5-4.2M12 12v9M8.3 5.1l7.5 4.3"/></svg>',
+    history: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 12h5M10 16h5"/></svg>',
+    movement: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4v15m0 0-3-3m3 3 3-3M16 20V5m0 0-3 3m3-3 3 3"/></svg>',
+    clock: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></svg>',
+    user: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M6.5 20v-2.5a5.5 5.5 0 0 1 11 0V20"/></svg>',
+    check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 12.5 3.2 3.2L17.5 8.5"/></svg>',
+  };
+  return icons[name] || "";
+}
+
 function renderLastMovement(material) {
   const type = String(material.last_movement_type || "").toUpperCase();
   const delta = Number(material.last_movement_quantity_changed);
-  let label = "-";
+  let title = "No movement yet";
+  let detail = "Belum ada pergerakan barang.";
+  let stateClass = "empty";
 
   if (type === "USE" && Number.isFinite(delta)) {
-    label = `&darr; USED ${Math.abs(delta)} BOX &middot; ${escapeHtml(formatMovementTime(material.last_movement_at))} &middot; ${escapeHtml(displayValue(material.last_movement_performed_by))}`;
+    title = `USED ${Math.abs(delta)} BOX`;
+    detail = `${escapeHtml(formatMovementTime(material.last_movement_at))} &middot; ${escapeHtml(displayValue(material.last_movement_performed_by))}`;
+    stateClass = "has-movement use";
   } else if (type === "STOCK_UPDATE" && Number.isFinite(delta)) {
     const sign = delta >= 0 ? "+" : "";
-    label = `${delta >= 0 ? "&uarr;" : "&darr;"} STOCK ${sign}${delta} BOX &middot; ${escapeHtml(formatMovementTime(material.last_movement_at))} &middot; ${escapeHtml(displayValue(material.last_movement_performed_by))}`;
+    title = `STOCK ${sign}${delta} BOX`;
+    detail = `${escapeHtml(formatMovementTime(material.last_movement_at))} &middot; ${escapeHtml(displayValue(material.last_movement_performed_by))}`;
+    stateClass = "has-movement stock-update";
   }
 
-  return `<section class="last-movement" aria-label="Last movement ${escapeHtml(material.part_number)}"><small>LAST MOVEMENT</small><b>${label}</b></section>`;
+  return `<section class="last-movement" aria-label="Last movement ${escapeHtml(material.part_number)}">
+    <small>Last Movement</small>
+    <div class="last-movement-panel ${stateClass}">
+      <span class="card-panel-icon">${cardIcon("movement")}</span>
+      <span><b>${title}</b><em>${detail}</em></span>
+    </div>
+  </section>`;
 }
 
 function getSupplyLabel(konmi) {
@@ -117,12 +145,13 @@ function renderMaterialRequestHistory(material) {
   const entries = history.length
     ? history.map((request) => `<div class="material-history-item">
           <b>${Number(request.requested_quantity_box) || 0} BOX</b>
-          <small>DONE · ${escapeHtml(formatDateTime(request.completed_at || request.handled_at))} · ${escapeHtml(displayValue(request.handled_by))}</small>
+          <span class="history-status">DONE</span>
+          <small><span>${escapeHtml(formatDateTime(request.completed_at || request.handled_at))}</span><em>${cardIcon("user")}${escapeHtml(displayValue(request.handled_by))}</em></small>
         </div>`).join("")
-    : `<small class="material-history-empty">Belum ada riwayat request.</small>`;
+    : `<div class="material-history-empty">${cardIcon("history")}<span><b>No request history</b><small>Belum ada riwayat request.</small></span></div>`;
 
   return `<section class="material-history" aria-label="Riwayat request ${escapeHtml(material.part_number)}">
-    <div class="material-history-header"><small>Riwayat Request</small><b>${history.length ? `${history.length} terakhir` : "-"}</b></div>
+    <div class="material-history-header"><small>Riwayat Request</small><b>${history.length ? `${history.length} terakhir` : ""}<span aria-hidden="true">&rsaquo;</span></b></div>
     <div class="material-history-list">${entries}</div>
   </section>`;
 }
@@ -137,6 +166,71 @@ function renderSummary() {
   document.querySelector("#summary-total-quantity").innerHTML = `${totalQuantity} <em>(Total semua material)</em>`;
 }
 
+const RUNNING_MACHINES = [
+  { code: "MODULE", label: "MODULE", className: "module", icon: "box" },
+  { code: "TRANSFER_LINE", label: "TRANSFER LINE", className: "transfer", icon: "movement" },
+];
+
+function renderRunningCards() {
+  const runningGrid = document.querySelector("#running-grid");
+  if (!runningGrid) return;
+
+  runningGrid.innerHTML = RUNNING_MACHINES.map((machine) => {
+    const state = runningStates.find((item) => item.machine_code === machine.code) || {
+      machine_code: machine.code,
+      is_machine_down: false,
+      armature_id: null,
+    };
+    const material = state.armature_id
+      ? materials.find((item) => String(item.id) === String(state.armature_id))
+      : null;
+    const isDown = state.is_machine_down === true;
+    const isRunning = !isDown && Boolean(material);
+    const stateLabel = isDown ? "MACHINE DOWN" : isRunning ? "RUNNING" : "NOT RUNNING";
+    const partNumber = material ? escapeHtml(displayValue(material.part_number)) : "Tidak ada ARMATURE";
+    const materialDetail = material
+      ? `${escapeHtml(displayValue(material.armature_type))} &middot; ${escapeHtml(getSupplyLabel(material.konmi).toUpperCase())}`
+      : "yang sedang running";
+
+    return `<article class="running-card ${machine.className} ${isDown ? "machine-down" : isRunning ? "is-running" : "not-running"}" data-machine-code="${machine.code}" tabindex="0" role="button" aria-label="Atur ${machine.label}">
+      <header class="running-card-header"><span class="running-machine-icon">${cardIcon(machine.icon)}</span><div><h3>${machine.label}</h3><small>Armature Monitoring</small></div><span class="running-type">K62</span></header>
+      <span class="running-state"><i></i>${stateLabel}</span>
+      <div class="running-material"><div><small>Armature yang sedang running</small><strong>${partNumber}</strong><span>${materialDetail}</span></div><button class="running-condition" type="button" data-machine-code="${machine.code}">${isDown ? "MESIN RUSAK" : "MESIN NORMAL"}</button></div>
+    </article>`;
+  }).join("");
+}
+
+async function loadRunningStates() {
+  const feedback = document.querySelector("#running-feedback");
+  const previousStates = runningStates;
+  try {
+    const { data, error } = await window.appDataService.loadRunningStates();
+    if (error) throw error;
+    runningStates = data || [];
+    renderRunningCards();
+    if (feedback) feedback.textContent = "";
+    return true;
+  } catch (error) {
+    console.error("Armature running data error:", error);
+    runningStates = previousStates;
+    renderRunningCards();
+    if (feedback) feedback.textContent = "Status armature running tidak dapat dimuat.";
+    return false;
+  }
+}
+
+function setupRequestHistoryToggle() {
+  const toggle = document.querySelector("#request-history-toggle");
+  const content = document.querySelector("#request-history-content");
+  if (!toggle || !content) return;
+
+  toggle.addEventListener("click", () => {
+    const willOpen = toggle.getAttribute("aria-expanded") !== "true";
+    toggle.setAttribute("aria-expanded", String(willOpen));
+    content.hidden = !willOpen;
+  });
+}
+
 function renderCards() {
   grid.innerHTML = materials.map((material) => {
     const part = escapeHtml(displayValue(material.part_number));
@@ -146,10 +240,22 @@ function renderCards() {
     const supplyClass = supplyLabel === "CKD" ? "ckd" : "local";
 
     return `<article class="material-card tone-${getTone(material.color)}" data-id="${escapeHtml(material.id)}" tabindex="0" role="button" aria-label="Buka detail armature ${part}">
-      <div class="card-head"><div class="material-code"><i></i><b>${part}</b><span class="type-pill">${escapeHtml(displayValue(material.armature_type))}</span></div><img class="mini-armature" src="../assets/armature.png" alt="Armature ${part}"></div>
-      <div class="card-body"><h2>Armature ${part.replace(":", "")}</h2><p class="card-meta"><span class="tag ${supplyClass}">${supplyLabel}</span>(Konmi ${escapeHtml(displayValue(material.konmi))})${isViewer ? ` · Warna ${escapeHtml(displayValue(material.color))}` : ""}</p>${requestLabel(material)}${renderMaterialRequestHistory(material)}
-      ${renderLastMovement(material)}<div class="quantity-row"><small>Quantity</small><strong>${quantity} <span>BOX</span></strong><b class="status ${statusClass(status)}">${escapeHtml(status)}</b></div>
-      <div class="card-footer"><div>▣<span><small>Last Update</small><b>${formatDateTime(material.last_stock_update)}</b></span></div><div>♙<span><small>Updated by</small><b>${escapeHtml(displayValue(material.stock_updated_by))}</b></span></div></div></div>
+      <header class="card-head">
+        <div class="card-identity"><small class="card-kicker">Kode Armature</small><div class="material-code"><b>${part}</b><span class="type-pill">${escapeHtml(displayValue(material.armature_type))}</span></div>
+        <div class="card-tags"><span class="tag ${supplyClass}">${supplyLabel}</span><span class="color-meta"><i></i>${escapeHtml(displayValue(material.color))}</span></div></div>
+        <img class="mini-armature" src="../assets/armature.png" alt="Armature ${part}">
+        ${requestLabel(material)}
+      </header>
+      <div class="card-body">
+        <section class="quantity-row" aria-label="Stock ${part}">
+          <span class="quantity-icon">${cardIcon("box")}</span>
+          <span class="quantity-copy"><small>Quantity</small><strong>${quantity} <em>BOX</em></strong></span>
+          <b class="status ${statusClass(status)}"><span>${status === "READY" ? cardIcon("check") : ""}</span>${escapeHtml(status)}</b>
+        </section>
+        ${renderMaterialRequestHistory(material)}
+        ${renderLastMovement(material)}
+        <footer class="card-footer"><div>${cardIcon("clock")}<span><small>Last Update</small><b>${formatDateTime(material.last_stock_update)}</b></span></div><div>${cardIcon("user")}<span><small>Updated by</small><b>${escapeHtml(displayValue(material.stock_updated_by))}</b></span></div></footer>
+      </div>
     </article>`;
   }).join("");
 
@@ -318,6 +424,7 @@ async function loadMaterials() {
     renderCards();
     renderActiveRequests(materials);
     await loadRequestHistory();
+    await loadRunningStates();
     const selected = materials.find(item => item.id === selectedId);
     if (selected) populate(selected);
     else {
@@ -347,6 +454,101 @@ async function loadMaterials() {
   }
 }
 
+function setRunningDraft(machineDown) {
+  runningDraftDown = machineDown;
+  document.querySelectorAll(".running-condition-options button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.machineDown === String(machineDown));
+  });
+  const select = document.querySelector("#running-armature-select");
+  const help = document.querySelector("#running-armature-help");
+  if (select) {
+    select.disabled = machineDown;
+    select.required = !machineDown;
+    if (machineDown) select.value = "";
+  }
+  if (help) {
+    help.textContent = machineDown
+      ? "Mesin rusak tidak dapat memiliki armature yang sedang running."
+      : "Memilih armature berarti mesin sedang menjalankan armature tersebut.";
+  }
+}
+
+function openRunningEditor(machineCode) {
+  if (runningBusy || !dataReady) return;
+  const machine = RUNNING_MACHINES.find((item) => item.code === machineCode);
+  if (!machine) return;
+  const state = runningStates.find((item) => item.machine_code === machineCode) || {
+    is_machine_down: false,
+    armature_id: null,
+  };
+  selectedMachineCode = machineCode;
+  setText("#running-modal-title", `Atur ${machine.label}`);
+  setText("#running-modal-feedback", "");
+
+  const select = document.querySelector("#running-armature-select");
+  select.innerHTML = `<option value="">Pilih armature K62</option>${materials
+    .slice()
+    .sort((left, right) => String(left.part_number).localeCompare(String(right.part_number)))
+    .map((material) => `<option value="${escapeHtml(material.id)}">${escapeHtml(material.part_number)} · ${escapeHtml(getSupplyLabel(material.konmi).toUpperCase())}</option>`)
+    .join("")}`;
+  select.value = state.armature_id || "";
+  setRunningDraft(state.is_machine_down === true);
+
+  const backdrop = document.querySelector("#running-backdrop");
+  backdrop.classList.add("show");
+  backdrop.setAttribute("aria-hidden", "false");
+}
+
+function closeRunningEditor(force = false) {
+  if (runningBusy && !force) return;
+  selectedMachineCode = null;
+  const backdrop = document.querySelector("#running-backdrop");
+  backdrop.classList.remove("show");
+  backdrop.setAttribute("aria-hidden", "true");
+}
+
+function setRunningBusy(value) {
+  runningBusy = value;
+  document.querySelectorAll("#running-backdrop button, #running-backdrop select").forEach((element) => {
+    element.disabled = value || (element.id === "running-armature-select" && runningDraftDown);
+  });
+  const submit = document.querySelector("#save-running");
+  if (submit) submit.textContent = value ? "Menyimpan..." : "Simpan";
+}
+
+async function submitRunningState(event) {
+  event.preventDefault();
+  if (runningBusy || !selectedMachineCode) return;
+  const select = document.querySelector("#running-armature-select");
+  const armatureId = runningDraftDown ? null : select.value || null;
+  if (!runningDraftDown && !armatureId) {
+    setText("#running-modal-feedback", "Pilih armature yang sedang running.");
+    return;
+  }
+
+  setRunningBusy(true);
+  setText("#running-modal-feedback", "Menyimpan...");
+  try {
+    const { error } = await window.appDataService.callRpc("update_armature_running", {
+      p_machine_code: selectedMachineCode,
+      p_machine_down: runningDraftDown,
+      p_armature_id: armatureId,
+    });
+    if (error) throw error;
+    const refreshed = await loadRunningStates();
+    if (!refreshed) {
+      setText("#running-modal-feedback", "Tersimpan, tetapi status terbaru gagal dimuat.");
+      return;
+    }
+    closeRunningEditor(true);
+    setText("#running-feedback", "Status armature running berhasil diperbarui.");
+  } catch (error) {
+    console.error("update_armature_running", error);
+    setText("#running-modal-feedback", "Status mesin gagal disimpan. Periksa koneksi lalu coba lagi.");
+  } finally {
+    setRunningBusy(false);
+  }
+}
 grid.addEventListener("click", (event) => {
   const card = event.target.closest(".material-card");
   if (!card) return;
@@ -366,7 +568,7 @@ document.querySelector("#backdrop").addEventListener("click", (event) => {
   if (event.target.id === "backdrop") closeStock();
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") { closeStock(); if (!isViewer) closeRequest(); }
+  if (event.key === "Escape") { closeStock(); closeRunningEditor(); if (!isViewer) closeRequest(); }
 });
 
 async function initializeDashboard() {
@@ -376,6 +578,26 @@ async function initializeDashboard() {
 }
 
 
+document.querySelector("#running-grid").addEventListener("click", (event) => {
+  const card = event.target.closest(".running-card");
+  if (card) openRunningEditor(card.dataset.machineCode);
+});
+document.querySelector("#running-grid").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const card = event.target.closest(".running-card");
+  if (!card) return;
+  event.preventDefault();
+  openRunningEditor(card.dataset.machineCode);
+});
+document.querySelectorAll(".running-condition-options button").forEach((button) => {
+  button.addEventListener("click", () => setRunningDraft(button.dataset.machineDown === "true"));
+});
+document.querySelector("#running-form").addEventListener("submit", submitRunningState);
+document.querySelector("#close-running-modal").addEventListener("click", closeRunningEditor);
+document.querySelector("#cancel-running").addEventListener("click", closeRunningEditor);
+document.querySelector("#running-backdrop").addEventListener("click", (event) => {
+  if (event.target.id === "running-backdrop") closeRunningEditor();
+});
 function currentMaterial() {
   return materials.find(item => item.id === selectedId);
 }
@@ -667,4 +889,5 @@ $("#delete-request").addEventListener("click", deleteRequest);
 $("#request-backdrop").addEventListener("click", event => { if (event.target.id === "request-backdrop") closeRequest(); });
 
 setupRequestFlowUi();
+setupRequestHistoryToggle();
 initializeDashboard();
