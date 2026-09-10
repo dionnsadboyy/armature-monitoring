@@ -43,6 +43,7 @@
 .card-footer small{display:block!important;color:#7991a9;font-size:10px!important;font-weight:600!important;letter-spacing:.01em}
 .card-footer b{display:block!important;margin-top:3px;color:#42698e;font-size:11px!important;font-weight:700!important;white-space:nowrap}
 .material-card{min-height:288px}
+.last-movement{margin-top:12px;padding-top:10px;border-top:1px solid #e0e9f0;min-width:0}.last-movement small{display:block;color:#7790aa;font-size:9px;font-weight:700;letter-spacing:.02em}.last-movement b{display:block;margin-top:4px;overflow:hidden;color:#42698e;font-size:9px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
 
 /* Manufacturing-floor readability and interaction details. */
 .sidebar nav a:hover:not(.active){background:#f2f8fd;color:#1f6dc3}
@@ -55,3 +56,4 @@
 .empty-state[role="status"]{display:none;position:relative}
 .empty-state[role="status"]::before{content:"";display:inline-block;width:14px;height:14px;margin-right:8px;border:2px solid #c8dcec;border-top-color:#2578d8;border-radius:50%;vertical-align:-2px;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.active-request-detail .ongoing{justify-self:start}@media(max-width:550px){.active-request-detail .ongoing{grid-column:2;grid-row:1/3}}

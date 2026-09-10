@@ -63,6 +63,32 @@ function formatDateTime(value) {
     .replace(",", " ·");
 }
 
+function formatMovementTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
+function renderLastMovement(material) {
+  const type = String(material.last_movement_type || "").toUpperCase();
+  const delta = Number(material.last_movement_quantity_changed);
+  let label = "-";
+
+  if (type === "USE" && Number.isFinite(delta)) {
+    label = `&darr; USED ${Math.abs(delta)} BOX &middot; ${escapeHtml(formatMovementTime(material.last_movement_at))} &middot; ${escapeHtml(displayValue(material.last_movement_performed_by))}`;
+  } else if (type === "STOCK_UPDATE" && Number.isFinite(delta)) {
+    const sign = delta >= 0 ? "+" : "";
+    label = `${delta >= 0 ? "&uarr;" : "&darr;"} STOCK ${sign}${delta} BOX &middot; ${escapeHtml(formatMovementTime(material.last_movement_at))} &middot; ${escapeHtml(displayValue(material.last_movement_performed_by))}`;
+  }
+
+  return `<section class="last-movement" aria-label="Last movement ${escapeHtml(material.part_number)}"><small>LAST MOVEMENT</small><b>${label}</b></section>`;
+}
+
 function getSupplyLabel(konmi) {
   if (!konmi) return "-";
   return String(konmi).toUpperCase().includes("CKD") ? "CKD" : "Lokal";
@@ -160,7 +186,7 @@ function renderCards() {
       return `<article class="material-card tone-${getTone(material.color)}" data-id="${escapeHtml(material.id)}" tabindex="0" role="button" aria-label="Buka detail armature ${part}">
       <div class="card-head"><div class="material-code"><i></i><b>${part}</b><span class="type-pill">${escapeHtml(displayValue(material.armature_type))}</span></div><img class="mini-armature" src="../assets/armature.png" alt="Armature ${part}"></div>
       <div class="card-body"><h2>Armature ${part.replace(":", "")}</h2><p class="card-meta"><span class="tag ${supplyClass}">${supplyLabel}</span>(Konmi ${escapeHtml(displayValue(material.konmi))})${isViewer ? ` · Warna ${escapeHtml(displayValue(material.color))}` : ""}</p>${requestLabel(material)}${renderMaterialRequestHistory(material)}
-      <div class="quantity-row"><small>Quantity</small><strong>${quantity} <span>BOX</span></strong><b class="status ${statusClass(status)}">${escapeHtml(status)}</b></div>
+      ${renderLastMovement(material)}<div class="quantity-row"><small>Quantity</small><strong>${quantity} <span>BOX</span></strong><b class="status ${statusClass(status)}">${escapeHtml(status)}</b></div>
       <div class="card-footer"><div>▣<span><small>Last Update</small><b>${formatDateTime(material.last_stock_update)}</b></span></div><div>♙<span><small>Updated by</small><b>${escapeHtml(displayValue(material.stock_updated_by))}</b></span></div></div></div>
     </article>`;
     })

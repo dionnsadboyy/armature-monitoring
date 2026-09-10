@@ -18,7 +18,7 @@
   const loadRequestHistory = () => window.supabaseClient
     .from("armature_request_history")
     .select("*")
-    .order("handled_at", { ascending: false })
+    .order("completed_at", { ascending: false })
     .order("id", { ascending: false });
 
   const callRpc = (name, args) => window.supabaseClient.rpc(name, args);
