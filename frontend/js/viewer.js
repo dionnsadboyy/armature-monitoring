@@ -12,8 +12,10 @@ let draggedRequestId = null;
 let requestOrderSaving = false;
 let requestHistoryRows = [];
 let runningStates = [];
+let activeArmatureType = "K62";
 const MAX_CARD_REQUEST_HISTORY = 3;
 const isViewer = true;
+const ALLOWED_ARMATURE_TYPES = ["K62", "K70"];
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) =>
   String(value).replace(
@@ -126,6 +128,9 @@ function getTone(color) {
     ungu: "purple",
     kuning: "yellow",
     hijau: "green",
+    hitam: "slate",
+    pink: "pink",
+    orange: "orange",
   };
   return tones[String(color || "").toLowerCase()] || "slate";
 }
@@ -195,21 +200,31 @@ function renderSummary() {
     0,
   );
   document.querySelector("#summary-material-count").innerHTML =
-    `${materials.length} <em>(K62)</em>`;
+    `${materials.length} <em>(${activeArmatureType})</em>`;
   document.querySelector("#summary-total-quantity").innerHTML =
     `${totalQuantity} <em>(Total semua material)</em>`;
 }
 
-const RUNNING_MACHINES = [
-  { code: "MODULE", label: "MODULE", className: "module", icon: "box" },
-  { code: "TRANSFER_LINE", label: "TRANSFER LINE", className: "transfer", icon: "movement" },
-];
+const RUNNING_MACHINES_BY_TYPE = {
+  K62: [
+    { code: "MODULE", label: "MODULE", className: "module", icon: "box" },
+    { code: "TRANSFER_LINE", label: "TRANSFER LINE", className: "transfer", icon: "movement" },
+  ],
+  K70: [
+    { code: "MODULE_K70", label: "MODULE", className: "module", icon: "box" },
+    { code: "TRANSFER_LINE_K70", label: "TRANSFER LINE", className: "transfer", icon: "movement" },
+  ],
+};
+
+function getRunningMachines() {
+  return RUNNING_MACHINES_BY_TYPE[activeArmatureType] || RUNNING_MACHINES_BY_TYPE.K62;
+}
 
 function renderRunningCards() {
   const runningGrid = document.querySelector("#running-grid");
   if (!runningGrid) return;
 
-  runningGrid.innerHTML = RUNNING_MACHINES.map((machine) => {
+  runningGrid.innerHTML = getRunningMachines().map((machine) => {
     const state = runningStates.find((item) => item.machine_code === machine.code) || {
       machine_code: machine.code,
       is_machine_down: false,
@@ -227,7 +242,7 @@ function renderRunningCards() {
       : "yang sedang running";
 
     return `<article class="running-card ${machine.className} ${isDown ? "machine-down" : isRunning ? "is-running" : "not-running"}" aria-label="Status ${machine.label}">
-      <header class="running-card-header"><span class="running-machine-icon">${cardIcon(machine.icon)}</span><div><h3>${machine.label}</h3><small>Armature Monitoring</small></div><span class="running-type">K62</span></header>
+      <header class="running-card-header"><span class="running-machine-icon">${cardIcon(machine.icon)}</span><div><h3>${machine.label}</h3><small>Armature Monitoring</small></div><span class="running-type">${activeArmatureType}</span></header>
       <span class="running-state"><i></i>${stateLabel}</span>
       <div class="running-material"><div><small>Armature yang sedang running</small><strong>${partNumber}</strong><span>${materialDetail}</span></div><span class="running-condition">${isDown ? "MESIN RUSAK" : "MESIN NORMAL"}</span></div>
     </article>`;
@@ -354,8 +369,9 @@ function renderRequestHistory(historyRows) {
   const list = document.querySelector("#request-history-list");
   if (!panel || !list) return;
 
+  const activeMaterialIds = new Set(materials.map((material) => String(material.id)));
   const history = (historyRows || [])
-    .filter((request) => request.status === "DONE")
+    .filter((request) => request.status === "DONE" && activeMaterialIds.has(String(request.armature_id)))
     .sort((left, right) => {
       const leftTime = Date.parse(left.completed_at || left.handled_at || "") || 0;
       const rightTime = Date.parse(right.completed_at || right.handled_at || "") || 0;
@@ -602,7 +618,24 @@ function closeStock() {
   backdrop.setAttribute("aria-hidden", "true");
 }
 
+function updateTypeTabs() {
+  document.querySelectorAll(".type-tabs .chip").forEach((button) => {
+    button.classList.toggle("active", button.dataset.type === activeArmatureType);
+  });
+}
+
+async function switchArmatureType(type) {
+  if (!ALLOWED_ARMATURE_TYPES.includes(type) || type === activeArmatureType) return;
+  activeArmatureType = type;
+  updateTypeTabs();
+  selectedId = null;
+  activeRequestOrder = [];
+  closeStock();
+  await loadMaterials();
+}
+
 async function loadMaterials() {
+  const requestedType = activeArmatureType;
   const previousMaterials = materials;
   const previousHistoryRows = requestHistoryRows;
   loading.style.display = "block";
@@ -610,7 +643,7 @@ async function loadMaterials() {
   dashboardError.style.display = "none";
   dataReady = false;
   try {
-    const { data, error } = await window.appDataService.loadMaterials();
+    const { data, error } = await window.appDataService.loadMaterials(requestedType);
     if (error) throw error;
     materials = data || [];
     dataReady = true;
@@ -853,4 +886,7 @@ $("#logout").addEventListener("click", async () => {
 });
 
 $("#handle-request").addEventListener("click", () => openQuantity("request"));
+document.querySelectorAll(".type-tabs .chip").forEach((button) => {
+  button.addEventListener("click", () => switchArmatureType(button.dataset.type));
+});
 initializeDashboard();

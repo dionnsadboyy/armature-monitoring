@@ -5,11 +5,11 @@
 
   // Keep page code independent from Supabase call details.
   // Supabase remains the only source of truth in every environment.
-  const loadMaterials = () => {
+  const loadMaterials = (armatureType = "K62") => {
     let query = window.supabaseClient
       .from("armature_dashboard")
       .select("*")
-      .eq("armature_type", "K62")
+      .eq("armature_type", armatureType)
       .eq("is_active", true);
 
     return query.order("part_number");

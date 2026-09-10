@@ -12,8 +12,10 @@ let runningStates = [];
 let selectedMachineCode = null;
 let runningDraftDown = false;
 let runningBusy = false;
+let activeArmatureType = "K62";
 const MAX_CARD_REQUEST_HISTORY = 3;
 const isViewer = false;
+const ALLOWED_ARMATURE_TYPES = ["K62", "K70"];
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 
@@ -103,7 +105,7 @@ function getSupplyLabel(konmi) {
 }
 
 function getTone(color) {
-  const tones = { biru: "blue", merah: "red", ungu: "purple", kuning: "yellow", hijau: "green" };
+  const tones = { biru: "blue", merah: "red", ungu: "purple", kuning: "yellow", hijau: "green", hitam: "slate", pink: "pink", orange: "orange" };
   return tones[String(color || "").toLowerCase()] || "slate";
 }
 
@@ -162,20 +164,30 @@ function statusClass(status) {
 
 function renderSummary() {
   const totalQuantity = materials.reduce((total, material) => total + (Number(material.quantity_box) || 0), 0);
-  document.querySelector("#summary-material-count").innerHTML = `${materials.length} <em>(K62)</em>`;
+  document.querySelector("#summary-material-count").innerHTML = `${materials.length} <em>(${activeArmatureType})</em>`;
   document.querySelector("#summary-total-quantity").innerHTML = `${totalQuantity} <em>(Total semua material)</em>`;
 }
 
-const RUNNING_MACHINES = [
-  { code: "MODULE", label: "MODULE", className: "module", icon: "box" },
-  { code: "TRANSFER_LINE", label: "TRANSFER LINE", className: "transfer", icon: "movement" },
-];
+const RUNNING_MACHINES_BY_TYPE = {
+  K62: [
+    { code: "MODULE", label: "MODULE", className: "module", icon: "box" },
+    { code: "TRANSFER_LINE", label: "TRANSFER LINE", className: "transfer", icon: "movement" },
+  ],
+  K70: [
+    { code: "MODULE_K70", label: "MODULE", className: "module", icon: "box" },
+    { code: "TRANSFER_LINE_K70", label: "TRANSFER LINE", className: "transfer", icon: "movement" },
+  ],
+};
+
+function getRunningMachines() {
+  return RUNNING_MACHINES_BY_TYPE[activeArmatureType] || RUNNING_MACHINES_BY_TYPE.K62;
+}
 
 function renderRunningCards() {
   const runningGrid = document.querySelector("#running-grid");
   if (!runningGrid) return;
 
-  runningGrid.innerHTML = RUNNING_MACHINES.map((machine) => {
+  runningGrid.innerHTML = getRunningMachines().map((machine) => {
     const state = runningStates.find((item) => item.machine_code === machine.code) || {
       machine_code: machine.code,
       is_machine_down: false,
@@ -193,7 +205,7 @@ function renderRunningCards() {
       : "yang sedang running";
 
     return `<article class="running-card ${machine.className} ${isDown ? "machine-down" : isRunning ? "is-running" : "not-running"}" data-machine-code="${machine.code}" tabindex="0" role="button" aria-label="Atur ${machine.label}">
-      <header class="running-card-header"><span class="running-machine-icon">${cardIcon(machine.icon)}</span><div><h3>${machine.label}</h3><small>Armature Monitoring</small></div><span class="running-type">K62</span></header>
+      <header class="running-card-header"><span class="running-machine-icon">${cardIcon(machine.icon)}</span><div><h3>${machine.label}</h3><small>Armature Monitoring</small></div><span class="running-type">${activeArmatureType}</span></header>
       <span class="running-state"><i></i>${stateLabel}</span>
       <div class="running-material"><div><small>Armature yang sedang running</small><strong>${partNumber}</strong><span>${materialDetail}</span></div><button class="running-condition" type="button" data-machine-code="${machine.code}">${isDown ? "MESIN RUSAK" : "MESIN NORMAL"}</button></div>
     </article>`;
@@ -311,8 +323,9 @@ function renderRequestHistory(historyRows) {
   const list = document.querySelector("#request-history-list");
   if (!panel || !list) return;
 
+  const activeMaterialIds = new Set(materials.map((material) => String(material.id)));
   const history = (historyRows || [])
-    .filter((request) => request.status === "DONE")
+    .filter((request) => request.status === "DONE" && activeMaterialIds.has(String(request.armature_id)))
     .sort((left, right) => {
       const leftTime = Date.parse(left.completed_at || left.handled_at || "") || 0;
       const rightTime = Date.parse(right.completed_at || right.handled_at || "") || 0;
@@ -410,6 +423,7 @@ function closeStock() {
 }
 
 async function loadMaterials() {
+  const requestedType = activeArmatureType;
   const previousMaterials = materials;
   const previousHistoryRows = requestHistoryRows;
   loading.style.display = "block";
@@ -417,7 +431,7 @@ async function loadMaterials() {
   dashboardError.style.display = "none";
   dataReady = false;
   try {
-    const { data, error } = await window.appDataService.loadMaterials();
+    const { data, error } = await window.appDataService.loadMaterials(requestedType);
     if (error) throw error;
     materials = data || [];
     dataReady = true;
@@ -475,7 +489,7 @@ function setRunningDraft(machineDown) {
 
 function openRunningEditor(machineCode) {
   if (runningBusy || !dataReady) return;
-  const machine = RUNNING_MACHINES.find((item) => item.code === machineCode);
+  const machine = getRunningMachines().find((item) => item.code === machineCode);
   if (!machine) return;
   const state = runningStates.find((item) => item.machine_code === machineCode) || {
     is_machine_down: false,
@@ -486,7 +500,7 @@ function openRunningEditor(machineCode) {
   setText("#running-modal-feedback", "");
 
   const select = document.querySelector("#running-armature-select");
-  select.innerHTML = `<option value="">Pilih armature K62</option>${materials
+  select.innerHTML = `<option value="">Pilih armature ${activeArmatureType}</option>${materials
     .slice()
     .sort((left, right) => String(left.part_number).localeCompare(String(right.part_number)))
     .map((material) => `<option value="${escapeHtml(material.id)}">${escapeHtml(material.part_number)} · ${escapeHtml(getSupplyLabel(material.konmi).toUpperCase())}</option>`)
@@ -505,6 +519,23 @@ function closeRunningEditor(force = false) {
   const backdrop = document.querySelector("#running-backdrop");
   backdrop.classList.remove("show");
   backdrop.setAttribute("aria-hidden", "true");
+}
+
+function updateTypeTabs() {
+  document.querySelectorAll(".type-tabs .chip").forEach((button) => {
+    button.classList.toggle("active", button.dataset.type === activeArmatureType);
+  });
+}
+
+async function switchArmatureType(type) {
+  if (!ALLOWED_ARMATURE_TYPES.includes(type) || type === activeArmatureType) return;
+  activeArmatureType = type;
+  updateTypeTabs();
+  selectedId = null;
+  closeStock();
+  closeRequest();
+  closeRunningEditor(true);
+  await loadMaterials();
 }
 
 function setRunningBusy(value) {
@@ -890,4 +921,7 @@ $("#request-backdrop").addEventListener("click", event => { if (event.target.id 
 
 setupRequestFlowUi();
 setupRequestHistoryToggle();
+document.querySelectorAll(".type-tabs .chip").forEach((button) => {
+  button.addEventListener("click", () => switchArmatureType(button.dataset.type));
+});
 initializeDashboard();

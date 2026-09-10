@@ -212,3 +212,7 @@
   .request-history-toggle em{display:none}
   .request-history-content{padding-right:14px;padding-left:14px}
 }
+
+/* K70 tones reuse the existing card treatment without changing the layout. */
+.tone-pink .card-head{background:#ffe5ef}
+.tone-orange .card-head{background:#fff0dc}
