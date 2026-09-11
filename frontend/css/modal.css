@@ -27,33 +27,88 @@ button:disabled{cursor:not-allowed;opacity:.55}
   display: none !important;
 }
 
-/* =========================================================
-   3D CARD -> DETAIL MODAL MICRO-INTERACTION
-   Visual-only polish. No business logic / Supabase changes.
-   ========================================================= */
-.modal-backdrop,
-.request-backdrop {
-  perspective: 1100px;
-  perspective-origin: 50% 45%;
+/* Material detail has real front/back faces; only the inner card rotates. */
+.material-flip-scene {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  max-height: none;
+  overflow: visible;
+  perspective: 1200px;
+  perspective-origin: 50% 50%;
+  transform: none;
+  transition: none;
 }
 
-.stock-modal,
-.request-modal {
-  opacity: .38;
-  transform: translate3d(0, 20px, -90px) scale(.78) rotateX(7deg) rotateY(-9deg);
-  transform-origin: 50% 42%;
+.material-flip-card {
+  display: grid;
+  width: 100%;
   transform-style: preserve-3d;
-  backface-visibility: hidden;
-  will-change: transform, opacity;
-  transition:
-    transform .32s cubic-bezier(.2,.82,.2,1),
-    opacity .22s ease;
+  will-change: transform;
 }
 
-.modal-backdrop.show .stock-modal,
+.material-front,
+.material-back {
+  box-sizing: border-box;
+  grid-area: 1 / 1;
+  width: 100%;
+  border: 1px solid #dce8f2;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 24px 65px rgba(30,68,108,.22);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.material-front {
+  position: relative;
+  transform: rotateY(0deg) translateZ(1px);
+}
+
+.material-front-content {
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  border-radius: inherit;
+}
+
+.material-back {
+  position: relative;
+  display: grid;
+  place-content: center;
+  gap: 10px;
+  color: #174a78;
+  background: #f9fcff;
+  text-align: center;
+  transform: rotateY(180deg) translateZ(1px);
+}
+
+.material-back img {
+  width: 62px;
+  height: 62px;
+  object-fit: cover;
+  object-position: center;
+  justify-self: center;
+  border: 1px solid #d9e7f3;
+  border-radius: 16px;
+  background: #edf5fc;
+}
+
+.material-back span {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.request-modal {
+  opacity: 0;
+  transform: translateY(6px) scale(.98);
+  transition: transform .18s ease, opacity .18s ease;
+}
+
 .request-backdrop.show .request-modal {
   opacity: 1;
-  transform: translate3d(0, 0, 0) scale(1) rotateX(0deg) rotateY(0deg);
+  transform: translateY(0) scale(1);
 }
 
 /* Tactile feedback on the source card before the modal expands. */
@@ -64,16 +119,15 @@ button:disabled{cursor:not-allowed;opacity:.55}
 @media (prefers-reduced-motion: reduce) {
   .modal-backdrop,
   .request-backdrop,
-  .stock-modal,
+  .material-flip-card,
   .request-modal,
   .material-card {
     transition-duration: .01ms !important;
     animation-duration: .01ms !important;
   }
 
-  .stock-modal,
+  .material-flip-card,
   .request-modal,
-  .modal-backdrop.show .stock-modal,
   .request-backdrop.show .request-modal {
     transform: none !important;
   }

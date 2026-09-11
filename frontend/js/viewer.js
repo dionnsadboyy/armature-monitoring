@@ -13,6 +13,7 @@ let requestOrderSaving = false;
 let requestHistoryRows = [];
 let runningStates = [];
 let activeArmatureType = "K62";
+let typeSwitchBusy = false;
 const MAX_CARD_REQUEST_HISTORY = 3;
 const isViewer = true;
 const ALLOWED_ARMATURE_TYPES = ["K62", "K70"];
@@ -43,6 +44,42 @@ const setText = (selector, value) => {
     );
   }
 };
+
+function setupProfileMenu(authenticated) {
+  const trigger = $("#profile-trigger");
+  const menu = $("#profile-menu");
+  const wrapper = document.querySelector(".profile-menu-wrap");
+  if (!trigger || !menu || !wrapper) return;
+
+  const name = "Blower Assy";
+  const role = "Gedung 2 · Viewer";
+  const email = authenticated?.session?.user?.email || "-";
+  ["#user-name", "#profile-name"].forEach((selector) => setText(selector, name));
+  ["#user-role", "#profile-role"].forEach((selector) => setText(selector, role));
+  setText("#profile-email", email);
+
+  const setOpen = (isOpen) => {
+    trigger.setAttribute("aria-expanded", String(isOpen));
+    if (isOpen) {
+      menu.hidden = false;
+      window.appAnimations?.dropdownOpen(menu);
+      return;
+    }
+
+    const finish = () => { menu.hidden = true; };
+    if (menu.hidden) finish();
+    else if (window.appAnimations?.dropdownClose) window.appAnimations.dropdownClose(menu, finish);
+    else finish();
+  };
+
+  trigger.addEventListener("click", () => setOpen(menu.hidden));
+  document.addEventListener("click", (event) => {
+    if (!wrapper.contains(event.target)) setOpen(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") setOpen(false);
+  });
+}
 
 function displayValue(value) {
   return value === null || value === undefined || value === "" ? "-" : value;
@@ -608,30 +645,57 @@ function openStock(material) {
   const backdrop = document.querySelector("#backdrop");
   backdrop.classList.add("show");
   backdrop.setAttribute("aria-hidden", "false");
+  window.appAnimations?.modalOpen(backdrop, backdrop.querySelector(".stock-modal"));
 }
 
 function closeStock() {
   if (busy) return;
   setQuantityFormVisible(false);
   const backdrop = document.querySelector("#backdrop");
-  backdrop.classList.remove("show");
-  backdrop.setAttribute("aria-hidden", "true");
+  const finish = () => {
+    backdrop.classList.remove("show");
+    backdrop.setAttribute("aria-hidden", "true");
+  };
+  if (window.appAnimations?.modalClose) window.appAnimations.modalClose(backdrop, backdrop.querySelector(".stock-modal"), finish);
+  else finish();
 }
 
 function updateTypeTabs() {
   document.querySelectorAll(".type-tabs .chip").forEach((button) => {
-    button.classList.toggle("active", button.dataset.type === activeArmatureType);
+    const isActive = button.dataset.type === activeArmatureType;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
   });
 }
 
 async function switchArmatureType(type) {
-  if (!ALLOWED_ARMATURE_TYPES.includes(type) || type === activeArmatureType) return;
-  activeArmatureType = type;
-  updateTypeTabs();
+  if (
+    typeSwitchBusy ||
+    !ALLOWED_ARMATURE_TYPES.includes(type) ||
+    type === activeArmatureType
+  ) return;
+
+  const dashboardPage = document.querySelector("#dashboard-page");
+  typeSwitchBusy = true;
   selectedId = null;
   activeRequestOrder = [];
   closeStock();
-  await loadMaterials();
+
+  try {
+    if (window.appAnimations?.pageTurnOut) {
+      await window.appAnimations.pageTurnOut(dashboardPage);
+    }
+
+    activeArmatureType = type;
+    updateTypeTabs();
+    await loadMaterials();
+
+    if (window.appAnimations?.pageTurnIn) {
+      await window.appAnimations.pageTurnIn(dashboardPage);
+    }
+  } finally {
+    typeSwitchBusy = false;
+  }
 }
 
 async function loadMaterials() {
@@ -715,7 +779,16 @@ document.addEventListener("keydown", (event) => {
 async function initializeDashboard() {
   const authenticated = await window.authGuardReady;
   if (!authenticated) return;
-  await loadMaterials();
+  setupProfileMenu(authenticated);
+  const loaded = await loadMaterials();
+  if (loaded) {
+    window.appAnimations?.pageEnter([
+      document.querySelector(".page-heading"),
+      document.querySelector(".type-tabs"),
+      document.querySelector(".summary-panel"),
+      document.querySelector("#armature-running"),
+    ]);
+  }
 }
 
 setupActiveRequestDragDrop();

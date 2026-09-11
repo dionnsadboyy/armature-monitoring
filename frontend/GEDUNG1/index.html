@@ -13,24 +13,36 @@
 </head>
 <body data-required-role="bop">
   <div class="app-shell">
-    <aside class="sidebar">
-      <div class="brand"><img src="../assets/logo.png" alt="Armature Monitoring System"></div>
-      <nav aria-label="Navigasi Gedung 1">
-        <a class="active" href="#dashboard"><span>⌂</span>Dashboard</a>
-        <a href="#armature"><span>☷</span>Armature Availability</a>
-        <a href="#armature"><span>⌕</span>Update Armature</a>
-      <a id="logout" href="#logout"><span>↪</span>Logout</a></nav>
-      <div class="company-note">♧ <span>PT Denso Manufacturing Indonesia<br><small>Blower AC Motor</small></span></div>
-    </aside>
-
     <main id="dashboard" class="dashboard">
       <header class="topbar">
-        <div><p class="eyebrow">Gedung 1 / BOP</p><h1>Armature Monitoring</h1><p class="subtitle">Update ketersediaan armature berdasarkan kondisi aktual di gedung.</p></div>
-        <div class="header-actions"><button class="icon-button" aria-label="Notifikasi">♧</button><div class="user"><span class="avatar" aria-hidden="true">●</span><b id="user-name">BOP</b><small id="user-role">Gedung 1</small><span class="chevron" aria-hidden="true">⌄</span></div></div>
+        <a class="brand" href="#dashboard" aria-label="Armature Monitoring">
+          <span class="brand-mark" aria-hidden="true"><img src="../assets/logo.png" alt=""></span>
+          <span class="brand-name">ARMATURE MONITORING</span>
+        </a>
+        <div class="header-actions">
+          <div class="profile-menu-wrap">
+            <button id="profile-trigger" class="user" type="button" aria-expanded="false" aria-controls="profile-menu">
+              <span class="avatar" aria-hidden="true">A</span>
+              <span class="user-copy"><b id="user-name">Armature Line</b><small id="user-role">Gedung 1 · BOP</small></span>
+              <span class="chevron" aria-hidden="true">⌄</span>
+            </button>
+            <div id="profile-menu" class="profile-menu" hidden>
+              <div class="profile-details"><b id="profile-name">Armature Line</b><small id="profile-email">Memuat email...</small><small id="profile-role">Gedung 1 · BOP</small></div>
+              <div class="profile-divider" aria-hidden="true"></div>
+              <button id="logout" class="profile-logout" type="button">Logout</button>
+            </div>
+          </div>
+        </div>
       </header>
 
-      <div class="type-tabs"><button class="chip active" data-type="K62">K62</button><button class="chip" data-type="K70">K70</button></div>
+      <div class="page-heading"><p class="eyebrow">Gedung 1 / BOP</p><h1>Armature Monitoring</h1><p class="subtitle">Update ketersediaan armature berdasarkan kondisi aktual di gedung.</p></div>
+
+      <div class="type-tabs" role="tablist" aria-label="Pilih tipe armature">
+        <button class="chip active" type="button" data-type="K62" role="tab" aria-selected="true"><span class="type-tab-code">K62</span><span class="type-tab-copy"><b>ARMATURE K62</b><small>Material lini K62</small></span></button>
+        <button class="chip" type="button" data-type="K70" role="tab" aria-selected="false"><span class="type-tab-code">K70</span><span class="type-tab-copy"><b>ARMATURE K70</b><small>Material lini K70</small></span></button>
+      </div>
       <section class="summary-panel" aria-label="Ringkasan material"><article><span class="summary-icon">▣</span><div><small>Total Material</small><strong id="summary-material-count">- <em>(K62)</em></strong></div></article><article><span class="summary-icon">▣</span><div><small>Total Quantity (Box)</small><strong id="summary-total-quantity">- <em>(Total semua material)</em></strong></div></article><p>ⓘ <span>Data dapat diupdate pada checkpoint kerja<br>(± 10:00, 12:00, 14:30, 16:30)</span></p></section>
+      <div id="dashboard-page" class="dashboard-page">
 
       <section id="armature-running" class="running-panel" aria-labelledby="running-title">
         <header class="running-header"><div><h2 id="running-title">ARMATURE RUNNING</h2><p>Kondisi Module dan Transfer Line saat ini.</p></div><small>Klik card untuk memperbarui.</small></header>
@@ -53,11 +65,15 @@
         </div>
       </section>
       <section id="armature" class="materials"><div id="grid" class="card-grid"></div><p id="loading" class="empty-state" role="status">Memuat data material...</p><p id="empty" class="empty-state">Material tidak ditemukan.</p><p id="dashboard-error" class="empty-state" role="alert"></p></section>
+      </div>
     </main>
   </div>
 
   <div id="backdrop" class="modal-backdrop" aria-hidden="true">
-    <section class="stock-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <section class="stock-modal material-flip-scene" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="material-flip-card">
+        <div class="material-front">
+          <div class="material-front-content">
       <button id="close-modal" class="modal-close" aria-label="Tutup">×</button>
       <header class="stock-heading"><div class="modal-part"><i></i><b id="m-part">A:0130</b><span id="m-type">K62</span></div><h2 id="modal-title">Armature 0130</h2><p><mark id="m-local">CKD</mark> <span id="m-konmi">(Konmi CKD / Ekspor)</span></p><img src="../assets/armature.png" alt="Armature"></header>
       <section class="stock-current"><div><small>Current Stock</small><strong id="m-qty">8 <span>BOX</span></strong><b id="m-status" class="status ready">READY</b></div><div><small>Last Update</small><b id="m-update">07 Sep 2026 · 09:42</b><em>by BOP (Gedung 1)</em></div></section>
@@ -70,7 +86,11 @@
         <div class="stock-actions"><button id="quantity-cancel" type="button">Batal</button><button id="quantity-submit" class="primary" type="submit">Simpan</button></div>
       </form>
       <p id="action-feedback" class="action-feedback" role="status"></p>
-      <footer id="modal-primary-actions" class="stock-actions"><button id="update-stock">▣ &nbsp; Update Stock</button><button id="handle-request" class="primary">▣ &nbsp; Handle Request</button></footer>
+            <footer id="modal-primary-actions" class="stock-actions"><button id="update-stock">▣ &nbsp; Update Stock</button><button id="handle-request" class="primary">▣ &nbsp; Handle Request</button></footer>
+          </div>
+        </div>
+        <div class="material-back" aria-hidden="true"><img src="../assets/logo.png" alt=""><span>ARMATURE MONITORING</span></div>
+      </div>
     </section>
   </div>
 
@@ -100,10 +120,12 @@
     </section>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../vendor/gsap.min.js"></script>
   <script src="../js/config.js"></script>
   <script src="../js/supabase.js"></script>
   <script src="../js/data-service.js"></script>
   <script src="../js/auth.js"></script>
+  <script src="../js/animations.js"></script>
   <script src="../js/bop.js"></script>
 </body>
 </html>
