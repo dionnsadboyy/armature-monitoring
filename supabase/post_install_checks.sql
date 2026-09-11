@@ -1,6 +1,6 @@
 -- ARMATURE MONITORING SYSTEM
 -- Post-install checks (read-only)
--- Run AFTER armature_monitoring_supabase_mvp_k62_v2_safe.sql
+-- Run AFTER the bootstrap SQL and ordered migrations (read-only).
 
 -- 1) K62 master should contain exactly 9 rows.
 select count(*) as k62_master_count
@@ -26,13 +26,27 @@ from public.armature_stock s
 join public.armatures a on a.id = s.armature_id
 where a.armature_type = 'K62';
 
--- 5) Confirm the one-active-request partial unique index.
+-- 5) Verify the exact final K70 master data.
+select part_number, armature_type, color, konmi, is_active
+from public.armatures
+where armature_type = 'K70'
+order by part_number;
+
+-- 6) K70 should have 8 stock rows; this query must not mutate stock.
+select
+  count(*) as k70_stock_row_count,
+  sum(quantity_box) as k70_total_box
+from public.armature_stock s
+join public.armatures a on a.id = s.armature_id
+where a.armature_type = 'K70';
+
+-- 7) Confirm the one-active-request partial unique index.
 select indexname, indexdef
 from pg_indexes
 where schemaname = 'public'
   and indexname = 'uq_one_active_request_per_armature';
 
--- 6) Confirm RLS is enabled on every exposed base table.
+-- 8) Confirm RLS is enabled on every exposed base table.
 select
   n.nspname as schema_name,
   c.relname as table_name,
@@ -45,11 +59,12 @@ where n.nspname = 'public'
     'armatures',
     'armature_stock',
     'armature_usage',
-    'armature_requests'
+    'armature_requests',
+    'armature_running'
   )
 order by c.relname;
 
--- 7) Confirm only SELECT RLS policies exist for direct table access.
+-- 9) Confirm only SELECT RLS policies exist for direct table access.
 select schemaname, tablename, policyname, cmd, roles
 from pg_policies
 where schemaname = 'public'
@@ -58,11 +73,12 @@ where schemaname = 'public'
     'armatures',
     'armature_stock',
     'armature_usage',
-    'armature_requests'
+    'armature_requests',
+    'armature_running'
   )
 order by tablename, policyname;
 
--- 8) Anon must NOT be able to execute critical RPCs.
+-- 10) Anon must NOT be able to execute critical RPCs.
 select
   has_function_privilege('anon', 'public.use_armature(uuid,integer)', 'EXECUTE')
     as anon_use_armature,
@@ -71,11 +87,13 @@ select
   has_function_privilege('anon', 'public.update_request_status(uuid,public.request_status)', 'EXECUTE')
     as anon_update_request,
   has_function_privilege('anon', 'public.update_armature_stock(uuid,integer)', 'EXECUTE')
-    as anon_update_stock;
+    as anon_update_stock,
+  has_function_privilege('anon', 'public.update_armature_running(text,boolean,uuid)', 'EXECUTE')
+    as anon_update_running;
 
 -- Expected: all FALSE.
 
--- 9) Authenticated users must be able to execute critical RPCs.
+-- 11) Authenticated users must be able to execute critical RPCs.
 select
   has_function_privilege('authenticated', 'public.use_armature(uuid,integer)', 'EXECUTE')
     as auth_use_armature,
@@ -84,11 +102,13 @@ select
   has_function_privilege('authenticated', 'public.update_request_status(uuid,public.request_status)', 'EXECUTE')
     as auth_update_request,
   has_function_privilege('authenticated', 'public.update_armature_stock(uuid,integer)', 'EXECUTE')
-    as auth_update_stock;
+    as auth_update_stock,
+  has_function_privilege('authenticated', 'public.update_armature_running(text,boolean,uuid)', 'EXECUTE')
+    as auth_update_running;
 
 -- Expected: all TRUE. Role checks inside the RPC still decide Viewer vs BOP.
 
--- 10) Authenticated direct table writes must be blocked at privilege level.
+-- 12) Authenticated direct table writes must be blocked at privilege level.
 select
   has_table_privilege('authenticated', 'public.armature_stock', 'SELECT') as stock_select,
   has_table_privilege('authenticated', 'public.armature_stock', 'INSERT') as stock_insert,
@@ -102,7 +122,7 @@ select
 -- stock_insert/update/delete = FALSE
 -- request_insert/update = FALSE
 
--- 11) Dashboard view should be security_invoker.
+-- 13) Dashboard view should be security_invoker.
 select
   n.nspname as schema_name,
   c.relname as view_name,
@@ -114,7 +134,7 @@ where n.nspname = 'public'
 
 -- Expected reloptions includes security_invoker=true.
 
--- 12) Dashboard smoke check as SQL admin.
+-- 14) Dashboard smoke check as SQL admin.
 select
   part_number,
   armature_type,
@@ -126,7 +146,7 @@ select
 from public.armature_dashboard
 order by part_number;
 
--- 13) DEV-only pending request-order checks.
+-- 15) DEV-only pending request-order checks.
 -- Expected active rows: sequence starts at 1, has no duplicates, and has no gaps.
 with active_requests as (
   select request_sequence
@@ -143,18 +163,18 @@ select
     as sequence_is_contiguous
 from active_requests;
 
--- 14) Dashboard must expose the persisted sequence for pending requests.
+-- 16) Dashboard must expose the persisted sequence for pending requests.
 select part_number, active_request_status, request_sequence
 from public.armature_dashboard
 where active_request_id is not null
 order by request_sequence asc nulls last, active_request_at asc, id asc;
 
--- 15) Approved history must be newest handled request first.
-select part_number, requested_quantity_box, status, handled_at, handled_by
+-- 17) DONE history must be newest completed request first.
+select part_number, requested_quantity_box, status, completed_at, handled_by
 from public.armature_request_history
-order by handled_at desc, id desc;
+order by completed_at desc, id desc;
 
--- 16) Only authenticated callers receive RPC access; the RPC itself limits
+-- 18) Only authenticated callers receive RPC access; the RPC itself limits
 -- execution to Viewer through its role check.
 select
   has_function_privilege('anon', 'public.reorder_armature_requests(uuid[])', 'EXECUTE')
@@ -164,9 +184,23 @@ select
 
 -- Expected: anon_reorder_requests = FALSE; authenticated_reorder_requests = TRUE.
 
--- 17) Delete RPC is authenticated-only; its BOP/status checks are inside RPC.
+-- 19) Delete RPC is authenticated-only; its BOP/status checks are inside RPC.
 select
   has_function_privilege('anon', 'public.delete_armature_request(uuid)', 'EXECUTE')
     as anon_delete_request,
   has_function_privilege('authenticated', 'public.delete_armature_request(uuid)', 'EXECUTE')
     as authenticated_delete_request;
+
+-- 20) Final running machine codes and machine-down invariant.
+select machine_code, is_machine_down, armature_id
+from public.armature_running
+order by machine_code;
+
+select conname, pg_get_constraintdef(oid) as constraint_definition
+from pg_constraint
+where conrelid = 'public.armature_running'::regclass
+  and conname in (
+    'armature_running_machine_code_check',
+    'armature_running_down_has_no_armature'
+  )
+order by conname;

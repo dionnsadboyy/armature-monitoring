@@ -1,9 +1,13 @@
 -- ARMATURE MONITORING SYSTEM
--- SUPABASE MVP TRIAL - K62
+-- HISTORICAL BOOTSTRAP / K62 BASELINE
+-- This file is not the standalone production-final definition. Apply the
+-- ordered migrations in supabase/supabase/migrations/ after this baseline.
 -- Reviewed: 8 September 2026
 -- Quantity unit = BOX
 -- 1 BOX = 18 pcs; 1 KANBAN = 6 BOX = 108 pcs
--- Flow: Viewer USE -> stock -, Viewer REQUEST -> PENDING -> BOP ONGOING -> DONE -> stock +
+-- Historical bootstrap flow: Viewer USE -> stock -, Viewer REQUEST ->
+-- PENDING -> BOP ONGOING -> DONE -> stock +. The ordered production
+-- migrations supersede the DONE stock behavior with no stock mutation.
 -- LOW threshold intentionally omitted (TBD).
 -- DONE means material is ready/available for Gedung 2. No delivery/in-transit/received tracking.
 
@@ -362,7 +366,9 @@ $$;
 -- Allowed transitions only:
 -- PENDING -> ONGOING
 -- ONGOING -> DONE
--- DONE atomically adds requested BOX to stock.
+-- Historical bootstrap behavior: DONE added requested BOX to stock. The
+-- ordered production migrations supersede this function with DONE-only state
+-- transition and no stock mutation.
 -- ============================================================
 
 create or replace function public.update_request_status(
